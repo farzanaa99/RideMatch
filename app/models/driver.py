@@ -15,7 +15,7 @@ class Driver:
         return len(self.current_rides) < self.max_capacity
         
     def assign_ride(self, ride_request):
-        if not self.is_available():
+        if not self.can_accept_ride():
             return False
 
         if ride_request.request_id in self.current_rides:
