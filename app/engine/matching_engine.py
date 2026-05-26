@@ -73,7 +73,6 @@ class MatchingEngine:
             logger.error("get_available_drivers() did not return a list.")
             return []
         
-        driver_pool = set(available_drivers)
         matches = []
 
         try:
@@ -118,10 +117,6 @@ class MatchingEngine:
                 
             best_driver.assign_ride(request)
             self.queue_manager.update_request(request)
-            if not best_driver.can_accept_ride():
-                driver_pool.discard(best_driver)
-                logger.debug("Driver %s is now full; removed from pool.", best_driver.driver_id)
- 
             matches.append((request.request_id, best_driver.driver_id))
  
         logger.info("Batch complete: %d matches made.", len(matches))
