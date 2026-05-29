@@ -20,4 +20,8 @@ class DriverStatus(Enum):
     AVAILABLE = "AVAILABLE"
     EN_ROUTE = "EN_ROUTE"
     ON_RIDE = "ON_RIDE"
-    
+
+class QueueSortStrategy(Enum):
+    FIFO = "fifo"              # Oldest first (fairness)
+    PRIORITY = "priority"      # Highest priority first (urgency)
+    HYBRID = "hybrid"          # Priority weight + age (best of both)
