@@ -1,5 +1,6 @@
 import math
-from app.models.enums import RideStatus
+from dataclasses import dataclass
+from app.models.enums import RideStatus, RidePriority
 import heapq
 import logging
 
@@ -7,11 +8,77 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-MAX_DRIVER_DISTANCE = 50.0
-WEIGHT_PROXIMITY = 0.4   # How close the driver is to the pickup point
-WEIGHT_PRIORITY  = 0.3   # How urgent the ride request is
-WEIGHT_WORKLOAD  = 0.2   # How free the driver currently is
-WEIGHT_DROPOFF   = 0.1   # How well the dropoff suits the driver's position
+@dataclass
+class MatchingConfig:
+    """Configuration for ride-driver matching strategies.
+    
+    Attributes:
+        name: Strategy identifier (e.g., "balanced", "speed_focused", "quality_focused")
+        distance_weight: Weight for proximity to pickup (0.0-1.0)
+        priority_weight: Weight for ride urgency (0.0-1.0)
+        workload_weight: Weight for driver availability (0.0-1.0)
+        dropoff_weight: Weight for dropoff location alignment (0.0-1.0)
+        max_driver_distance: Maximum distance (km) driver can be from pickup
+    
+    Note: distance_weight + priority_weight + workload_weight + dropoff_weight should sum to 1.0
+    """
+    name: str = "balanced"
+    distance_weight: float = 0.4
+    priority_weight: float = 0.3
+    workload_weight: float = 0.2
+    dropoff_weight: float = 0.1
+    max_driver_distance: float = 50.0
+
+    def validate(self):
+        """Validate that weights sum to 1.0 and are all non-negative."""
+        total_weight = (
+            self.distance_weight + self.priority_weight + 
+            self.workload_weight + self.dropoff_weight
+        )
+        if not (0.99 <= total_weight <= 1.01):  # Allow small floating-point error
+            raise ValueError(
+                f"Weights must sum to 1.0, got {total_weight}. "
+                f"({self.distance_weight} + {self.priority_weight} + "
+                f"{self.workload_weight} + {self.dropoff_weight})"
+            )
+        
+        if any(w < 0 for w in [
+            self.distance_weight, self.priority_weight,
+            self.workload_weight, self.dropoff_weight
+        ]):
+            raise ValueError("All weights must be non-negative")
+        
+        if self.max_driver_distance <= 0:
+            raise ValueError("max_driver_distance must be positive")
+
+
+# Preset configs for different matching strategies
+BALANCED_CONFIG = MatchingConfig(
+    name="balanced",
+    distance_weight=0.4,
+    priority_weight=0.3,
+    workload_weight=0.2,
+    dropoff_weight=0.1,
+    max_driver_distance=50.0
+)
+
+SPEED_FOCUSED_CONFIG = MatchingConfig(
+    name="speed_focused",
+    distance_weight=0.6,  # Prioritize closeness
+    priority_weight=0.2,
+    workload_weight=0.1,
+    dropoff_weight=0.1,
+    max_driver_distance=30.0  # Stricter distance
+)
+
+QUALITY_FOCUSED_CONFIG = MatchingConfig(
+    name="quality_focused",
+    distance_weight=0.3,
+    priority_weight=0.4,  # Prioritize urgent rides
+    workload_weight=0.2,
+    dropoff_weight=0.1,
+    max_driver_distance=60.0  # More lenient distance
+)
 
 def haversine_distance(loc1, loc2):
     """
@@ -29,35 +96,74 @@ def haversine_distance(loc1, loc2):
     return R * 2 * math.asin(math.sqrt(a))
 
 class MatchingEngine:
-    def __init__ (self, queue_manager):
+    """Core matching algorithm with configurable scoring strategy."""
+
+    def __init__(self, queue_manager, config: MatchingConfig = None):
+        """Initialize matching engine with optional config.
+        
+        Args:
+            queue_manager: Manager for pending requests and available drivers
+            config: MatchingConfig instance. Defaults to BALANCED_CONFIG if not provided.
+        
+        Raises:
+            ValueError: If config validation fails
+        """
         self.queue_manager = queue_manager
+        self.config = config or BALANCED_CONFIG
+        self.config.validate()
 
     def calculate_score(self, driver, ride_request):
+        """Calculate match score between driver and ride request.
+        
+        Score is weighted combination of:
+        - Proximity: how close driver is to pickup (0-1, normalized)
+        - Priority: how urgent the request is (0-1, normalized from enum)
+        - Workload: how available the driver is (0-1, normalized)
+        - Dropoff: how well dropoff aligns with driver position (0-1, normalized)
+        
+        Args:
+            driver: Driver ORM model
+            ride_request: RideRequest ORM model
+        
+        Returns:
+            float: Final score (0.0-1.0, higher is better)
+        """
+        # Calculate proximity (distance to pickup)
         pickup_dist = haversine_distance(
             driver.current_location,
             (ride_request.pickup_lat, ride_request.pickup_lng)
         )
         proximity = 1 / (1 + pickup_dist)
-        priority = ride_request.priority
-        workload = 1 / (1 + len(driver.current_rides))
+        
+        # Normalize priority from enum (LOW=1, NORMAL=2, HIGH=3) to 0-1 range
+        priority_value = ride_request.priority.value if hasattr(ride_request.priority, 'value') else ride_request.priority
+        priority_normalized = priority_value / 3.0  # Normalize to 0-1 range
+        
+        # Calculate workload (driver capacity usage)
+        workload = 1 / (1 + driver.active_ride_count)
+        
+        # Calculate dropoff alignment
         dropoff_dist = haversine_distance(
             driver.current_location,
             (ride_request.dropoff_lat, ride_request.dropoff_lng)
         )
         dropoff_align = 1 / (1 + dropoff_dist)
  
+        # Weighted score
         score = (
-            proximity     * WEIGHT_PROXIMITY +
-            priority      * WEIGHT_PRIORITY  +
-            workload      * WEIGHT_WORKLOAD  +
-            dropoff_align * WEIGHT_DROPOFF
+            proximity       * self.config.distance_weight +
+            priority_normalized * self.config.priority_weight +
+            workload        * self.config.workload_weight +
+            dropoff_align   * self.config.dropoff_weight
         )
 
         logger.debug(
             "Score for driver %s on request %s: %.3f "
-            "(proximity=%.3f, priority=%.3f, workload=%.3f, dropoff=%.3f)",
+            "(proximity=%.3f, priority_norm=%.3f, workload=%.3f, dropoff=%.3f) "
+            "using config '%s'",
             driver.driver_id, ride_request.request_id,
-            score, proximity, priority, workload, dropoff_align,
+            score, proximity, priority_normalized, workload, dropoff_align,
+            self.config.name
         )
 
         return score
@@ -86,7 +192,7 @@ class MatchingEngine:
             best_driver = None
 
             for driver in available_drivers:
-                if not driver.can_accept_ride():
+                if not driver.is_assignable:
                     continue
 
                 pickup_dist = haversine_distance(
@@ -94,7 +200,7 @@ class MatchingEngine:
                     (request.pickup_lat, request.pickup_lng)
                 )
  
-                if pickup_dist > MAX_DRIVER_DISTANCE:
+                if pickup_dist > self.config.max_driver_distance:
                     logger.debug(
                         "Driver %s skipped — %.1f km exceeds threshold.",
                         driver.driver_id, pickup_dist,

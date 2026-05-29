@@ -1,38 +1,61 @@
-import time
+import uuid
+from sqlalchemy import Column, String, Float, Integer, Enum, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
+from datetime import datetime
+from app.database import Base
+from app.models.enums import DriverStatus, RideStatus
 
-from app.models.enums import RideStatus
 
-class Driver:
+class Driver(Base):
+    __tablename__ = "drivers"
 
-    def __init__(self, driver_id, current_location, max_capacity=1):
-        self.driver_id = driver_id
-        self.current_location = current_location
-        self.max_capacity = max_capacity
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    driver_name = Column(String(255), nullable=False)
+    rating = Column(Float, nullable=False, default=5.0)
+    lat = Column(Float, nullable=False)
+    lng = Column(Float, nullable=False)
+    max_capacity = Column(Integer, nullable=False, default=1)
+    status = Column(Enum(DriverStatus), nullable=False, default=DriverStatus.AVAILABLE, index=True)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    
+    # Relationships
+    rides = relationship("RideRequest", back_populates="driver")
 
-        self.current_rides = {}
+    @property
+    def driver_id(self):
+        return self.id
 
-    def can_accept_ride(self):
-        return len(self.current_rides) < self.max_capacity
-        
+    @property
+    def current_location(self):
+        return (self.lat, self.lng)
+
+    @property
+    def active_ride_count(self):
+        return len([r for r in self.rides if r.status in (RideStatus.ASSIGNED, RideStatus.EN_ROUTE, RideStatus.IN_PROGRESS)])
+
+    @property
+    def is_assignable(self):
+        return self.active_ride_count < self.max_capacity and self.status == DriverStatus.AVAILABLE
+
     def assign_ride(self, ride_request):
-        if not self.can_accept_ride():
+        if not self.is_assignable:
             return False
 
-        if ride_request.request_id in self.current_rides:
+        if any(r.id == ride_request.id for r in self.rides):
             return False
                 
-        self.current_rides[ride_request.request_id] = ride_request
-        ride_request.assigned_driver_id = self.driver_id
+        self.rides.append(ride_request)
+        ride_request.assigned_driver_id = self.id
         ride_request.status = RideStatus.ASSIGNED
-        ride_request.assigned_at = time.time()
+        ride_request.assigned_at = datetime.utcnow()
         return True
 
         
     def complete_ride(self, request_id):
-        if request_id in self.current_rides:
-            ride = self.current_rides[request_id]
+        ride = next((r for r in self.rides if r.id == request_id), None)
+        if ride:
             ride.status = RideStatus.COMPLETED
-            del self.current_rides[request_id]
+            self.rides.remove(ride)
             return True
         return False
     
