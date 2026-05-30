@@ -52,3 +52,37 @@ class DriverRepository(BaseRepository[Driver]):
             )
         )
         return result.scalars().all()
+
+    async def update_status(self, driver_id: str, status: DriverStatus) -> Optional[Driver]:
+        """Update driver status.
+        
+        Args:
+            driver_id: ID of the driver to update.
+            status: New status to set.
+        
+        Returns:
+            Updated Driver or None if not found.
+        """
+        driver = await self.get_by_id(driver_id)
+        if driver:
+            driver.status = status
+            await self.session.flush()
+        return driver
+
+    async def update_location(self, driver_id: str, lat: float, lng: float) -> Optional[Driver]:
+        """Update driver location.
+        
+        Args:
+            driver_id: ID of the driver to update.
+            lat: Latitude coordinate.
+            lng: Longitude coordinate.
+        
+        Returns:
+            Updated Driver or None if not found.
+        """
+        driver = await self.get_by_id(driver_id)
+        if driver:
+            driver.lat = lat
+            driver.lng = lng
+            await self.session.flush()
+        return driver

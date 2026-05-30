@@ -6,30 +6,34 @@ from app.models import RideRequest, Driver
 from app.models.enums import QueueSortStrategy, RideStatus, DriverStatus
 import logging
 from app.exceptions import RideRequestNotFound, InvalidStatusTransition
+from app.engine.state_machine import RideStateMachine
+from app.repositories.ride_request_repository import RideRequestRepository
+from app.repositories.driver_repository import DriverRepository
 
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-VALID_TRANSITIONS: dict[RideStatus, set[RideStatus]] = {
-    RideStatus.PENDING:   {RideStatus.QUEUED, RideStatus.ASSIGNED, RideStatus.FAILED},
-    RideStatus.QUEUED:    {RideStatus.ASSIGNED, RideStatus.FAILED},
-    RideStatus.ASSIGNED:  {RideStatus.PICKED_UP, RideStatus.FAILED},
-    RideStatus.PICKED_UP: {RideStatus.COMPLETED, RideStatus.FAILED},
-    RideStatus.COMPLETED: set(),   # terminal
-    RideStatus.FAILED:    set(),   # terminal
-    RideStatus.IN_PROGRESS: {RideStatus.COMPLETED, RideStatus.FAILED},
-    RideStatus.RETRYING: {RideStatus.QUEUED, RideStatus.FAILED},
-}
- 
 STALE_THRESHOLD_MINUTES = 30
 
 class QueueManager:
     """Manages queues of ride requests and available drivers, ensuring efficient matching and processing.
+    
+    Uses repositories for entity operations and session for complex queries (pagination, aggregation, bulk ops).
     """
-    def __init__(self, session: AsyncSession, strategy = QueueSortStrategy.HYBRID):
+    def __init__(
+        self,
+        session: AsyncSession,
+        ride_repo: RideRequestRepository,
+        driver_repo: DriverRepository,
+        strategy: QueueSortStrategy = QueueSortStrategy.HYBRID,
+        state_machine: RideStateMachine | None = None,
+    ):
         self.session = session
+        self.ride_repo = ride_repo
+        self.driver_repo = driver_repo
         self.strategy = strategy
+        self.state_machine = state_machine or RideStateMachine()
 
     async def get_pending_requests(
         self,
@@ -120,14 +124,10 @@ class QueueManager:
             raise ValueError(f"limit must be non-negative, got {limit}")
  
         try:
-            stmt = (
-                select(Driver)
-                .where(Driver.status == DriverStatus.AVAILABLE)
-                .order_by(Driver.rating.desc())
-                .limit(limit)
-            )
-            result = await self.session.execute(stmt)
-            drivers = list(result.scalars().all())
+            # Use repository for simple entity query
+            drivers = await self.driver_repo.get_available_drivers()
+            # Apply limit manually (repository doesn't support pagination)
+            drivers = drivers[:limit]
  
             logger.info(
                 "get_available_drivers: fetched=%d (limit=%d)",
@@ -170,10 +170,8 @@ class QueueManager:
             return
  
         try:
-            # ---- verify request exists ----
-            fetch_stmt = select(RideRequest).where(RideRequest.id == request_id)
-            row = (await self.session.execute(fetch_stmt)).scalar_one_or_none()
- 
+            # ---- verify request exists using repository ----
+            row = await self.ride_repo.get_by_id(request_id)
             if row is None:
                 raise RideRequestNotFound(
                     f"RideRequest id={request_id!r} not found"
@@ -182,22 +180,17 @@ class QueueManager:
             # ---- validate state machine transition ----
             if status is not None:
                 current_status: RideStatus = row.status
-                allowed = VALID_TRANSITIONS.get(current_status, set())
-                if status not in allowed:
-                    raise InvalidStatusTransition(
-                        f"Cannot transition request {request_id!r}: "
-                        f"{current_status} → {status}  "
-                        f"(allowed: {allowed or 'none — terminal state'})"
-                    )
+                self.state_machine.validate_transition(
+                    current=current_status,
+                    next=status,
+                    actor="queue_manager"
+                )
  
-            # ---- apply update ----
-            stmt = (
-                update(RideRequest)
-                .where(RideRequest.id == request_id)
-                .values(**values)
-            )
-            await self.session.execute(stmt)
-            await self.session.commit()
+            # ---- apply update using repository ----
+            # For status + driver_id updates, update the in-memory object and flush
+            for key, value in values.items():
+                setattr(row, key, value)
+            await self.ride_repo.commit()
  
             if status is not None:
                 logger.info(
@@ -216,7 +209,7 @@ class QueueManager:
         except (RideRequestNotFound, InvalidStatusTransition):
             raise  # re-raise domain exceptions without rollback
         except Exception:
-            await self.session.rollback()
+            await self.ride_repo.rollback()
             logger.exception("update_request: database error for id=%s — rolled back", request_id)
             raise
  

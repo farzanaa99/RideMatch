@@ -59,3 +59,19 @@ class RideRequestRepository(BaseRepository[RideRequest]):
             )
         )
         return result.scalars().all()
+
+    async def update_status(self, request_id: str, status: RideStatus) -> Optional[RideRequest]:
+        """Update ride request status.
+        
+        Args:
+            request_id: ID of the ride request to update.
+            status: New status to set.
+        
+        Returns:
+            Updated RideRequest or None if not found.
+        """
+        request = await self.get_by_id(request_id)
+        if request:
+            request.status = status
+            await self.session.flush()
+        return request
