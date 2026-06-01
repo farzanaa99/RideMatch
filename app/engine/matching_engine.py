@@ -1,5 +1,6 @@
 import math
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from app.models.enums import RideStatus, RidePriority
 import heapq
 import logging
@@ -110,10 +111,10 @@ class MatchingEngine:
  
         # Weighted score
         score = (
-            proximity       * self.config.distance_weight +
-            priority_normalized * self.config.priority_weight +
-            workload        * self.config.workload_weight +
-            dropoff_align   * self.config.dropoff_weight
+            proximity            * self.config.distance_weight +
+            priority_normalized  * self.config.priority_weight +
+            workload             * self.config.workload_weight +
+            dropoff_align        * self.config.dropoff_weight
         )
 
         logger.debug(
@@ -126,12 +127,14 @@ class MatchingEngine:
         )
 
         return score
-    
+
     async def match_rides(self):
         """Match pending ride requests to available drivers.
         
         Fetches pending requests and available drivers from queue_manager,
         scores each possible match, and assigns the best driver to each request.
+        Rides with no available driver are scheduled for exponential backoff retry,
+        or permanently failed if retries are exhausted.
         
         Returns:
             List of (request_id, driver_id) tuples for successful matches.
@@ -170,9 +173,36 @@ class MatchingEngine:
                     score = self.calculate_score(driver, request)
                     heapq.heappush(heap, (-score, driver))
                 
-                # No eligible drivers found
+                # No eligible drivers found — schedule retry or permanently fail
                 if not heap:
-                    logger.warning("No suitable driver found for request %s.", request.request_id)
+                    if request.can_retry():
+                        # Increment retry count and calculate backoff delay
+                        request.retry_count += 1
+                        delay = self.queue_manager._calculate_retry_delay(request.retry_count)
+                        request.retry_scheduled_at = datetime.now(timezone.utc) + delay
+
+                        await self.queue_manager.update_request(
+                            request_id=request.request_id,
+                            status=RideStatus.RETRYING,
+                        )
+                        logger.info(
+                            "No driver for request %s — retry %d/%d scheduled in %.0fs.",
+                            request.request_id,
+                            request.retry_count,
+                            request.max_retries,
+                            delay.total_seconds(),
+                        )
+                    else:
+                        # Retries exhausted — permanently fail
+                        await self.queue_manager.update_request(
+                            request_id=request.request_id,
+                            status=RideStatus.FAILED,
+                        )
+                        logger.warning(
+                            "Request %s permanently failed after %d retries.",
+                            request.request_id,
+                            request.retry_count,
+                        )
                     continue
                 
                 # Get best-scoring driver
@@ -201,8 +231,38 @@ class MatchingEngine:
         except Exception as e:
             logger.exception("match_rides: error during matching — %s", str(e))
             raise
- 
-    
 
-                     
+    async def process_retries(self) -> int:
+        """Re-queue rides whose retry backoff period has elapsed.
 
+        Should be called periodically (e.g. every 10 seconds) by a background
+        scheduler. Fetches all RETRYING rides whose retry_scheduled_at has
+        passed and transitions them back to PENDING so the next match_rides()
+        batch picks them up.
+
+        Returns:
+            Number of rides re-queued.
+        """
+        try:
+            ready = await self.queue_manager.get_rides_ready_for_retry()
+
+            for ride in ready:
+                await self.queue_manager.update_request(
+                    request_id=ride.request_id,
+                    status=RideStatus.PENDING,
+                )
+                logger.info(
+                    "Re-queued request %s for retry %d/%d.",
+                    ride.request_id,
+                    ride.retry_count,
+                    ride.max_retries,
+                )
+
+            if ready:
+                logger.info("process_retries: re-queued %d rides.", len(ready))
+
+            return len(ready)
+
+        except Exception:
+            logger.exception("process_retries: error during retry processing")
+            raise

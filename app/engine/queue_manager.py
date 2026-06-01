@@ -9,17 +9,21 @@ from app.exceptions import RideRequestNotFound, InvalidStatusTransition
 from app.engine.state_machine import RideStateMachine
 from app.repositories.ride_request_repository import RideRequestRepository
 from app.repositories.driver_repository import DriverRepository
+from app.events import EventBus, DomainEvent, EventType
 
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 STALE_THRESHOLD_MINUTES = 30
+RETRY_BASE_DELAY_SECONDS = 5  # First retry after 5 seconds
+RETRY_MAX_DELAY_SECONDS = 300  # Cap at 5 minutes
 
 class QueueManager:
     """Manages queues of ride requests and available drivers, ensuring efficient matching and processing.
     
     Uses repositories for entity operations and session for complex queries (pagination, aggregation, bulk ops).
+    Publishes events for state transitions via EventBus.
     """
     def __init__(
         self,
@@ -28,12 +32,31 @@ class QueueManager:
         driver_repo: DriverRepository,
         strategy: QueueSortStrategy = QueueSortStrategy.HYBRID,
         state_machine: RideStateMachine | None = None,
+        event_bus: EventBus | None = None,
     ):
         self.session = session
         self.ride_repo = ride_repo
         self.driver_repo = driver_repo
         self.strategy = strategy
         self.state_machine = state_machine or RideStateMachine()
+        self.event_bus = event_bus
+
+    @staticmethod
+    def _calculate_retry_delay(retry_count: int) -> timedelta:
+        """Calculate exponential backoff delay.
+        
+        Formula: base_delay * (2 ^ retry_count), capped at max_delay.
+        Example:
+            retry 0: 5s
+            retry 1: 10s
+            retry 2: 20s
+            retry 3+: 300s (5 min cap)
+        """
+        delay_seconds = min(
+            RETRY_BASE_DELAY_SECONDS * (2 ** retry_count),
+            RETRY_MAX_DELAY_SECONDS
+        )
+        return timedelta(seconds=delay_seconds)
 
     async def get_pending_requests(
         self,
@@ -140,6 +163,38 @@ class QueueManager:
             logger.exception("get_available_drivers: database error")
             raise
     
+    async def get_rides_ready_for_retry(self, limit: int = 100) -> List[RideRequest]:
+        """Get RETRYING rides whose retry_scheduled_at has passed.
+        
+        Args:
+            limit: Maximum number of rides to return.
+        
+        Returns:
+            List of rides ready to be re-queued.
+        """
+        if limit < 0:
+            raise ValueError(f"limit must be non-negative, got {limit}")
+        
+        try:
+            now = datetime.now(timezone.utc)
+            stmt = select(RideRequest).where(
+                (RideRequest.status == RideStatus.RETRYING) &
+                (RideRequest.retry_scheduled_at <= now)
+            ).limit(limit)
+            
+            result = await self.session.execute(stmt)
+            rides = list(result.scalars().all())
+            
+            logger.info(
+                "get_rides_ready_for_retry: found=%d ready to retry",
+                len(rides),
+            )
+            return rides
+        
+        except Exception:
+            logger.exception("get_rides_ready_for_retry: database error")
+            raise
+    
     async def update_request(
         self,
         request_id: str,
@@ -192,6 +247,7 @@ class QueueManager:
                 setattr(row, key, value)
             await self.ride_repo.commit()
  
+            # ---- emit events ----
             if status is not None:
                 logger.info(
                     "update_request: id=%s  %s → %s",
@@ -199,6 +255,37 @@ class QueueManager:
                     row.status,
                     status,
                 )
+                # Emit status-specific events
+                if self.event_bus:
+                    event_type_map = {
+                        RideStatus.QUEUED: EventType.RIDE_QUEUED,
+                        RideStatus.ASSIGNED: EventType.RIDE_ASSIGNED,
+                        RideStatus.EN_ROUTE: EventType.RIDE_PICKED_UP,
+                        RideStatus.IN_PROGRESS: EventType.RIDE_IN_PROGRESS,
+                        RideStatus.COMPLETED: EventType.RIDE_COMPLETED,
+                        RideStatus.FAILED: EventType.RIDE_FAILED,
+                        RideStatus.RETRYING: EventType.RIDE_RETRYING,
+                    }
+                    if status in event_type_map:
+                        event_data = {"request_id": request_id}
+                        
+                        # Add context-specific data
+                        if status == RideStatus.ASSIGNED and driver_id:
+                            event_data["driver_id"] = driver_id
+                            if row.assigned_at and row.created_at:
+                                latency_ms = (row.assigned_at - row.created_at).total_seconds() * 1000
+                                event_data["latency_ms"] = latency_ms
+                        elif status == RideStatus.FAILED:
+                            event_data["retry_count"] = row.retry_count
+                            event_data["max_retries"] = row.max_retries
+                        elif status == RideStatus.RETRYING:
+                            event_data["retry_count"] = row.retry_count
+                        
+                        await self.event_bus.publish(DomainEvent(
+                            event_type=event_type_map[status],
+                            data=event_data
+                        ))
+ 
             if driver_id is not None:
                 logger.info(
                     "update_request: id=%s assigned driver=%s",

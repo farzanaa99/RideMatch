@@ -24,6 +24,7 @@ class RideRequest(Base):
     # Retry logic
     retry_count = Column(Integer, nullable=False, default=0)
     max_retries = Column(Integer, nullable=False, default=3)
+    retry_scheduled_at = Column(DateTime, nullable=True)  # When to retry (exponential backoff)
     
     # Assignment
     assigned_driver_id = Column(String(36), ForeignKey("drivers.id"), nullable=True)

@@ -9,7 +9,24 @@ from app.repositories.ride_request_repository import RideRequestRepository
 from app.repositories.driver_repository import DriverRepository
 from app.services.driver_service import DriverService
 from app.services.ride_service import RideRequestService
+from app.events import EventBus
 from fastapi import Depends
+
+# Will be set by main.py
+_event_bus: EventBus | None = None
+
+
+def set_event_bus(event_bus: EventBus) -> None:
+    """Set the event bus instance (called from main.py)."""
+    global _event_bus
+    _event_bus = event_bus
+
+
+def get_event_bus() -> EventBus:
+    """Get the event bus instance."""
+    if _event_bus is None:
+        raise RuntimeError("Event bus not initialized")
+    return _event_bus
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -26,12 +43,18 @@ async def get_driver_service(session: AsyncSession = Depends(get_db)) -> DriverS
     return DriverService(session)
 
 
-async def get_ride_service(session: AsyncSession = Depends(get_db)) -> RideRequestService:
-    """Get ride service."""
-    return RideRequestService(session)
+async def get_ride_service(
+    session: AsyncSession = Depends(get_db),
+    event_bus: EventBus = Depends(get_event_bus)
+) -> RideRequestService:
+    """Get ride service with event bus."""
+    return RideRequestService(session, event_bus)
 
-async def get_queue_manager(session: AsyncSession = Depends(get_db)) -> QueueManager:
-    """Get queue manager with repositories and state machine."""
+async def get_queue_manager(
+    session: AsyncSession = Depends(get_db),
+    event_bus: EventBus = Depends(get_event_bus)
+) -> QueueManager:
+    """Get queue manager with repositories, state machine, and event bus."""
     ride_repo = RideRequestRepository(session)
     driver_repo = DriverRepository(session)
     state_machine = RideStateMachine()
@@ -40,4 +63,5 @@ async def get_queue_manager(session: AsyncSession = Depends(get_db)) -> QueueMan
         ride_repo=ride_repo,
         driver_repo=driver_repo,
         state_machine=state_machine,
+        event_bus=event_bus,
     )

@@ -34,8 +34,9 @@ class DriverResponse(DriverBase):
     """Schema for driver response."""
     id: str
     status: DriverStatus
-    active_ride_count: int
+    active_ride_count: int = 0
     created_at: datetime
 
     class Config:
         from_attributes = True
+        populate_by_name = True

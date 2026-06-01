@@ -17,48 +17,94 @@ from app.schemas import (
     RideRequestUpdate,
     RideRequestResponse
 )
+from app.events import EventBus, DomainEvent, EventType
 
 
 class RideRequestService:
     """Service for ride request business logic."""
 
-    def __init__(self, session: AsyncSession):
+    def __init__(self, session: AsyncSession, event_bus: Optional[EventBus] = None):
         self.session = session
         self.repo = RideRequestRepository(session)
+        self.event_bus = event_bus
+
+    @staticmethod
+    def _to_response(request: RideRequest) -> RideRequestResponse:
+        """Convert ORM model to response schema."""
+        assignment_latency = None
+        if request.assigned_at and request.created_at:
+            latency_ms = (request.assigned_at - request.created_at).total_seconds() * 1000
+            assignment_latency = int(latency_ms)
+        
+        return RideRequestResponse(
+            id=request.id,
+            rider_id=request.rider_id,
+            pickup_lat=request.pickup_lat,
+            pickup_lng=request.pickup_lng,
+            dropoff_lat=request.dropoff_lat,
+            dropoff_lng=request.dropoff_lng,
+            pickup_address=request.pickup_address,
+            dropoff_address=request.dropoff_address,
+            priority=request.priority,
+            status=request.status,
+            assigned_driver_id=request.assigned_driver_id,
+            retry_count=request.retry_count,
+            max_retries=request.max_retries,
+            assignment_latency_ms=assignment_latency,
+            created_at=request.created_at,
+            assigned_at=request.assigned_at,
+            picked_up_at=request.picked_up_at,
+            completed_at=request.completed_at,
+            failed_at=request.failed_at,
+        )
 
     async def create_ride_request(self, request_in: RideRequestCreate) -> RideRequestResponse:
         """Create a new ride request."""
         request_data = request_in.model_dump()
         request = await self.repo.create(request_data)
         await self.repo.commit()
-        return RideRequestResponse.from_orm(request)
+        
+        # Emit event
+        if self.event_bus:
+            await self.event_bus.publish(DomainEvent(
+                event_type=EventType.RIDE_CREATED,
+                data={
+                    "request_id": request.id,
+                    "rider_id": request.rider_id,
+                    "priority": request.priority.name,
+                    "pickup_lat": request.pickup_lat,
+                    "pickup_lng": request.pickup_lng,
+                }
+            ))
+        
+        return self._to_response(request)
 
     async def get_ride_request(self, request_id: str) -> RideRequestResponse:
         """Get a ride request by ID."""
         request = await self.repo.get_by_id(request_id)
         if not request:
             raise RideRequestNotFound(f"Ride request {request_id} not found")
-        return RideRequestResponse.from_orm(request)
+        return self._to_response(request)
 
     async def get_all_requests(self, skip: int = 0, limit: int = 100) -> List[RideRequestResponse]:
         """Get all ride requests."""
         requests = await self.repo.get_all(skip, limit)
-        return [RideRequestResponse.from_orm(r) for r in requests]
+        return [self._to_response(r) for r in requests]
 
     async def get_pending_requests(self) -> List[RideRequestResponse]:
         """Get all pending requests."""
         requests = await self.repo.get_pending_requests()
-        return [RideRequestResponse.from_orm(r) for r in requests]
+        return [self._to_response(r) for r in requests]
 
     async def get_requests_by_rider(self, rider_id: str) -> List[RideRequestResponse]:
         """Get all requests for a rider."""
         requests = await self.repo.get_requests_by_rider(rider_id)
-        return [RideRequestResponse.from_orm(r) for r in requests]
+        return [self._to_response(r) for r in requests]
 
     async def get_requests_by_driver(self, driver_id: str) -> List[RideRequestResponse]:
         """Get all requests assigned to a driver."""
         requests = await self.repo.get_requests_by_driver(driver_id)
-        return [RideRequestResponse.from_orm(r) for r in requests]
+        return [self._to_response(r) for r in requests]
 
     async def update_ride_request(
         self,
@@ -73,7 +119,7 @@ class RideRequestService:
         request_data = request_in.model_dump(exclude_unset=True)
         updated_request = await self.repo.update(request_id, request_data)
         await self.repo.commit()
-        return RideRequestResponse.from_orm(updated_request)
+        return self._to_response(updated_request)
 
     async def assign_ride(self, request_id: str, driver_id: str) -> RideRequestResponse:
         """Assign a ride to a driver."""
@@ -93,7 +139,7 @@ class RideRequestService:
         request.status = RideStatus.ASSIGNED
         request.assigned_at = datetime.utcnow()
         await self.repo.commit()
-        return RideRequestResponse.from_orm(request)
+        return self._to_response(request)
 
     async def mark_picked_up(self, request_id: str) -> RideRequestResponse:
         """Mark a ride as picked up."""
@@ -109,7 +155,7 @@ class RideRequestService:
         request.status = RideStatus.IN_PROGRESS
         request.picked_up_at = datetime.utcnow()
         await self.repo.commit()
-        return RideRequestResponse.from_orm(request)
+        return self._to_response(request)
 
     async def mark_completed(self, request_id: str) -> RideRequestResponse:
         """Mark a ride as completed."""
@@ -125,7 +171,7 @@ class RideRequestService:
         request.status = RideStatus.COMPLETED
         request.completed_at = datetime.utcnow()
         await self.repo.commit()
-        return RideRequestResponse.from_orm(request)
+        return self._to_response(request)
 
     async def mark_failed(self, request_id: str) -> RideRequestResponse:
         """Mark a ride as failed."""
@@ -136,7 +182,7 @@ class RideRequestService:
         request.status = RideStatus.FAILED
         request.failed_at = datetime.utcnow()
         await self.repo.commit()
-        return RideRequestResponse.from_orm(request)
+        return self._to_response(request)
 
     async def retry_request(self, request_id: str) -> RideRequestResponse:
         """Retry a failed request."""
@@ -159,4 +205,4 @@ class RideRequestService:
         request.assigned_driver_id = None
         request.assigned_at = None
         await self.repo.commit()
-        return RideRequestResponse.from_orm(request)
+        return self._to_response(request)
