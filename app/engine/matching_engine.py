@@ -129,19 +129,6 @@ class MatchingEngine:
         return score
 
     async def match_rides(self):
-        """Match pending ride requests to available drivers.
-        
-        Fetches pending requests and available drivers from queue_manager,
-        scores each possible match, and assigns the best driver to each request.
-        Rides with no available driver are scheduled for exponential backoff retry,
-        or permanently failed if retries are exhausted.
-        
-        Returns:
-            List of (request_id, driver_id) tuples for successful matches.
-        
-        Raises:
-            Exception: If database operations fail (logged and re-raised).
-        """
         try:
             # Fetch pending requests and available drivers
             ride_requests, total_count = await self.queue_manager.get_pending_requests()
@@ -233,16 +220,6 @@ class MatchingEngine:
             raise
 
     async def process_retries(self) -> int:
-        """Re-queue rides whose retry backoff period has elapsed.
-
-        Should be called periodically (e.g. every 10 seconds) by a background
-        scheduler. Fetches all RETRYING rides whose retry_scheduled_at has
-        passed and transitions them back to PENDING so the next match_rides()
-        batch picks them up.
-
-        Returns:
-            Number of rides re-queued.
-        """
         try:
             ready = await self.queue_manager.get_rides_ready_for_retry()
 
