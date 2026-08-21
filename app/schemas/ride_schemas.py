@@ -1,6 +1,5 @@
 """Pydantic schemas for ride requests, responses, and matching results."""
-
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 from datetime import datetime
 from app.models.enums import RideStatus, RidePriority
@@ -44,8 +43,7 @@ class RideRequestResponse(RideRequestBase):
     completed_at: Optional[datetime] = None
     failed_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MatchResult(BaseModel):
