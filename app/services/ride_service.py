@@ -1,11 +1,12 @@
 """Service layer for ride request operations."""
 
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.ride_request import RideRequest
 from app.models.enums import RideStatus, RidePriority
 from app.repositories.ride_request_repository import RideRequestRepository
+
 from app.exceptions import (
     RideRequestNotFound,
     RideAlreadyAssigned,
@@ -137,7 +138,7 @@ class RideRequestService:
         
         request.assigned_driver_id = driver_id
         request.status = RideStatus.ASSIGNED
-        request.assigned_at = datetime.utcnow()
+        request.assigned_at = datetime.now(timezone.utc).replace(tzinfo=None)
         await self.repo.commit()
         return self._to_response(request)
 
@@ -153,7 +154,7 @@ class RideRequestService:
             )
         
         request.status = RideStatus.IN_PROGRESS
-        request.picked_up_at = datetime.utcnow()
+        request.picked_up_at = datetime.now(timezone.utc).replace(tzinfo=None)
         await self.repo.commit()
         return self._to_response(request)
 
@@ -169,7 +170,7 @@ class RideRequestService:
             )
         
         request.status = RideStatus.COMPLETED
-        request.completed_at = datetime.utcnow()
+        request.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
         await self.repo.commit()
         return self._to_response(request)
 
@@ -180,7 +181,7 @@ class RideRequestService:
             raise RideRequestNotFound(f"Ride request {request_id} not found")
         
         request.status = RideStatus.FAILED
-        request.failed_at = datetime.utcnow()
+        request.failed_at = datetime.now(timezone.utc).replace(tzinfo=None)
         await self.repo.commit()
         return self._to_response(request)
 

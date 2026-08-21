@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Float, Integer, Enum, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -24,13 +24,12 @@ class RideRequest(Base):
     # Retry logic
     retry_count = Column(Integer, nullable=False, default=0)
     max_retries = Column(Integer, nullable=False, default=3)
-    retry_scheduled_at = Column(DateTime, nullable=True)  # When to retry (exponential backoff)
     
     # Assignment
     assigned_driver_id = Column(String(36), ForeignKey("drivers.id"), nullable=True)
     
     # Lifecycle timestamps
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     queued_at = Column(DateTime, nullable=True)
     assigned_at = Column(DateTime, nullable=True)
     picked_up_at = Column(DateTime, nullable=True)

@@ -2,7 +2,7 @@
 
 from typing import Dict, List
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 logger = logging.getLogger(__name__)
@@ -24,14 +24,17 @@ class MetricsCollector:
     def __init__(self):
         self.assignment_latencies: List[float] = []  # Latencies in ms
         self.total_rides: int = 0
+        self.total_assignments: int = 0
         self.failed_rides: int = 0
         self.completed_rides: int = 0
+        self.queue_depth: int = 0
         self.driver_metrics: Dict[str, DriverMetrics] = {}
 
     def record_assignment(self, driver_id: str, latency_ms: float) -> None:
         """Record a successful assignment with latency."""
         self.assignment_latencies.append(latency_ms)
         self.total_rides += 1
+        self.total_assignments += 1
         
         if driver_id not in self.driver_metrics:
             self.driver_metrics[driver_id] = DriverMetrics(driver_id=driver_id)
@@ -97,21 +100,29 @@ class MetricsCollector:
         ]
         
         return {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             "total_rides": self.total_rides,
+            "total_assignments": self.total_assignments,
             "completed_rides": self.completed_rides,
             "failed_rides": self.failed_rides,
+            "queue_depth": self.queue_depth,
             "average_assignment_latency_ms": self.get_average_latency(),
             "failure_rate_percent": self.get_failure_rate(),
             "assignment_samples": len(self.assignment_latencies),
             "driver_utilization": driver_utilization,
         }
 
+    def set_queue_depth(self, depth: int) -> None:
+        """Set current queue depth value."""
+        self.queue_depth = max(0, depth)
+
     def reset(self) -> None:
         """Reset all metrics."""
         self.assignment_latencies.clear()
         self.total_rides = 0
+        self.total_assignments = 0
         self.failed_rides = 0
         self.completed_rides = 0
+        self.queue_depth = 0
         self.driver_metrics.clear()
         logger.info("Metrics reset")
