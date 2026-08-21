@@ -17,8 +17,8 @@ engine_kwargs = {
     "future": True,
 }
 if not DATABASE_URL.startswith("sqlite"):
-    engine_kwargs["pool_size"] = 20
-    engine_kwargs["max_overflow"] = 0
+    engine_kwargs["pool_size"] = 50
+    engine_kwargs["max_overflow"] = 20
 
 engine = create_async_engine(DATABASE_URL, **engine_kwargs)
 

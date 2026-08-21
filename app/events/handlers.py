@@ -1,13 +1,18 @@
 """Event handlers for ride events."""
 
 import logging
+from typing import Optional
 from app.events.models import DomainEvent, EventType
 from app.events.registry import EventHandlerRegistry
+from app.metrics import MetricsCollector
 
 logger = logging.getLogger(__name__)
 
 
-def register_handlers(registry: EventHandlerRegistry) -> None:
+def register_handlers(
+    registry: EventHandlerRegistry,
+    metrics_collector: Optional[MetricsCollector] = None,
+) -> None:
     """Register all event handlers."""
 
     @registry.register(EventType.RIDE_CREATED)
@@ -29,6 +34,8 @@ def register_handlers(registry: EventHandlerRegistry) -> None:
         request_id = event.data.get("request_id")
         driver_id = event.data.get("driver_id")
         latency_ms = event.data.get("latency_ms", 0)
+        if metrics_collector and driver_id:
+            metrics_collector.record_assignment(driver_id, float(latency_ms or 0))
         logger.info(
             f"✓ RIDE_ASSIGNED: {request_id} → {driver_id} "
             f"(latency: {latency_ms:.0f}ms)"
@@ -50,14 +57,20 @@ def register_handlers(registry: EventHandlerRegistry) -> None:
     async def on_ride_completed(event: DomainEvent):
         """Handle ride completed event."""
         request_id = event.data.get("request_id")
+        driver_id = event.data.get("driver_id")
+        if metrics_collector and driver_id:
+            metrics_collector.record_completion(driver_id)
         logger.info(f"✓ RIDE_COMPLETED: {request_id}")
 
     @registry.register(EventType.RIDE_FAILED)
     async def on_ride_failed(event: DomainEvent):
         """Handle ride failed event."""
         request_id = event.data.get("request_id")
+        driver_id = event.data.get("driver_id")
         retry_count = event.data.get("retry_count", 0)
         max_retries = event.data.get("max_retries", 0)
+        if metrics_collector:
+            metrics_collector.record_failure(driver_id)
         
         if retry_count < max_retries:
             logger.warning(

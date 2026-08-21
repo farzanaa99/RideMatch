@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ridematch-db
+    environment:
+      POSTGRES_USER: ridematch
+      POSTGRES_PASSWORD: ridematch
+      POSTGRES_DB: ridematch
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ridematch -d ridematch"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ridematch-api
+    command: python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+    environment:
+      DATABASE_URL: postgresql+asyncpg://ridematch:ridematch@db:5432/ridematch
+      SQL_ECHO: "False"
+      LOG_LEVEL: INFO
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ridematch-worker
+    command: python -m app.worker
+    environment:
+      DATABASE_URL: postgresql+asyncpg://ridematch:ridematch@db:5432/ridematch
+      SQL_ECHO: "False"
+      LOG_LEVEL: INFO
+      WORKER_POLL_SECONDS: "2"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

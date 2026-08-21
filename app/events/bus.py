@@ -6,6 +6,7 @@ from typing import Optional
 
 from app.events.models import DomainEvent, EventType
 from app.events.registry import EventHandlerRegistry
+from app.metrics import MetricsCollector
 
 logger = logging.getLogger(__name__)
 
@@ -13,8 +14,13 @@ logger = logging.getLogger(__name__)
 class EventBus:
     """Pub/Sub event bus using asyncio.Queue."""
 
-    def __init__(self, registry: EventHandlerRegistry):
+    def __init__(
+        self,
+        registry: EventHandlerRegistry,
+        metrics_collector: Optional[MetricsCollector] = None,
+    ):
         self.registry = registry
+        self.metrics_collector = metrics_collector
         self.queue: asyncio.Queue[DomainEvent] = asyncio.Queue()
         self.is_running = False
         self.processor_task: Optional[asyncio.Task] = None
@@ -97,7 +103,11 @@ class EventBus:
 
     def get_metrics(self) -> dict:
         """Get event bus metrics."""
-        return self.metrics.copy()
+        metrics = self.metrics.copy()
+        metrics["queue_depth"] = self.queue.qsize()
+        if self.metrics_collector:
+            self.metrics_collector.set_queue_depth(self.queue.qsize())
+        return metrics
 
     def queue_size(self) -> int:
         """Get current queue size."""

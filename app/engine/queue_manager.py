@@ -1,9 +1,9 @@
 from typing import List, Optional, Tuple
-from sqlalchemy import select, update, func
+from sqlalchemy import select, update, func, case
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import RideRequest, Driver
-from app.models.enums import QueueSortStrategy, RideStatus, DriverStatus
+from app.models.enums import QueueSortStrategy, RideStatus, DriverStatus, RidePriority
 import logging
 from app.exceptions import RideRequestNotFound, InvalidStatusTransition
 from app.engine.state_machine import RideStateMachine
@@ -93,13 +93,20 @@ class QueueManager:
                 base_filter = base_filter & (RideRequest.created_at >= stale_cutoff)
  
             # ---- apply sorting strategy ----
+            priority_rank = case(
+                (RideRequest.priority == RidePriority.HIGH, 3),
+                (RideRequest.priority == RidePriority.NORMAL, 2),
+                (RideRequest.priority == RidePriority.LOW, 1),
+                else_=0,
+            )
+
             if self.strategy == QueueSortStrategy.FIFO:
                 order_clause = [RideRequest.created_at.asc()]
             elif self.strategy == QueueSortStrategy.PRIORITY:
-                order_clause = [RideRequest.priority.desc()]
+                order_clause = [priority_rank.desc(), RideRequest.created_at.asc()]
             else:  # HYBRID (default)
                 order_clause = [
-                    RideRequest.priority.desc(),
+                    priority_rank.desc(),
                     RideRequest.created_at.asc(),
                 ]
  
@@ -148,10 +155,9 @@ class QueueManager:
  
         try:
             # Use repository for simple entity query
-            drivers = await self.driver_repo.get_available_drivers()
-            # Apply limit manually (repository doesn't support pagination)
+            drivers = await self.driver_repo.get_available_drivers_for_update()   # CHANGED
             drivers = drivers[:limit]
- 
+
             logger.info(
                 "get_available_drivers: fetched=%d (limit=%d)",
                 len(drivers),
@@ -164,7 +170,7 @@ class QueueManager:
             raise
     
     async def get_rides_ready_for_retry(self, limit: int = 100) -> List[RideRequest]:
-        """Get RETRYING rides whose retry_scheduled_at has passed.
+        """Get RETRYING rides whose exponential backoff delay has elapsed.
         
         Args:
             limit: Maximum number of rides to return.
@@ -176,14 +182,35 @@ class QueueManager:
             raise ValueError(f"limit must be non-negative, got {limit}")
         
         try:
-            now = datetime.now(timezone.utc)
-            stmt = select(RideRequest).where(
-                (RideRequest.status == RideStatus.RETRYING) &
-                (RideRequest.retry_scheduled_at <= now)
-            ).limit(limit)
-            
+            now = datetime.now(timezone.utc).replace(tzinfo=None)
+            stmt = (
+                select(RideRequest)
+                .where(RideRequest.status == RideStatus.RETRYING)
+                .order_by(RideRequest.failed_at.asc().nullsfirst())
+                .limit(limit * 3)
+            )
             result = await self.session.execute(stmt)
-            rides = list(result.scalars().all())
+            candidates = list(result.scalars().all())
+
+            rides: List[RideRequest] = []
+            for ride in candidates:
+                # If missing failed_at, treat as ready to avoid dead-lettering rows.
+                if ride.failed_at is None:
+                    rides.append(ride)
+                    if len(rides) >= limit:
+                        break
+                    continue
+
+                failed_at = ride.failed_at
+                if failed_at.tzinfo is not None:
+                    failed_at = failed_at.replace(tzinfo=None)
+
+                retry_delay = self._calculate_retry_delay(ride.retry_count)
+                retry_ready_at = failed_at + retry_delay
+                if retry_ready_at <= now:
+                    rides.append(ride)
+                    if len(rides) >= limit:
+                        break
             
             logger.info(
                 "get_rides_ready_for_retry: found=%d ready to retry",
@@ -218,7 +245,8 @@ class QueueManager:
             values["status"] = status
         if driver_id is not None:
             values["assigned_driver_id"] = driver_id
-            values["assigned_at"] = datetime.now(timezone.utc)
+            values["assigned_at"] = datetime.now(timezone.utc).replace(tzinfo=None)
+
  
         if not values:
             logger.warning("update_request: called with no values for id=%s", request_id)
@@ -240,6 +268,13 @@ class QueueManager:
                     next=status,
                     actor="queue_manager"
                 )
+
+                if status == RideStatus.RETRYING:
+                    now = datetime.now(timezone.utc).replace(tzinfo=None)
+                    row.retry_count += 1
+                    row.assigned_driver_id = None
+                    row.assigned_at = None
+                    row.failed_at = now
  
             # ---- apply update using repository ----
             # For status + driver_id updates, update the in-memory object and flush
@@ -273,13 +308,31 @@ class QueueManager:
                         if status == RideStatus.ASSIGNED and driver_id:
                             event_data["driver_id"] = driver_id
                             if row.assigned_at and row.created_at:
-                                latency_ms = (row.assigned_at - row.created_at).total_seconds() * 1000
+                                assigned_at = row.assigned_at
+                                created_at = row.created_at
+
+                                if assigned_at.tzinfo is not None:
+                                    assigned_at = assigned_at.replace(tzinfo=None)
+
+                                if created_at.tzinfo is not None:
+                                    created_at = created_at.replace(tzinfo=None)
+
+                                latency_ms = (assigned_at - created_at).total_seconds() * 1000
                                 event_data["latency_ms"] = latency_ms
                         elif status == RideStatus.FAILED:
+                            if row.assigned_driver_id:
+                                event_data["driver_id"] = row.assigned_driver_id
                             event_data["retry_count"] = row.retry_count
                             event_data["max_retries"] = row.max_retries
                         elif status == RideStatus.RETRYING:
+                            retry_delay = self._calculate_retry_delay(row.retry_count)
                             event_data["retry_count"] = row.retry_count
+                            event_data["retry_backoff_seconds"] = int(retry_delay.total_seconds())
+                            event_data["next_retry_at"] = (
+                                row.failed_at + retry_delay
+                            ).isoformat() if row.failed_at else None
+                        elif status == RideStatus.COMPLETED and row.assigned_driver_id:
+                            event_data["driver_id"] = row.assigned_driver_id
                         
                         await self.event_bus.publish(DomainEvent(
                             event_type=event_type_map[status],
