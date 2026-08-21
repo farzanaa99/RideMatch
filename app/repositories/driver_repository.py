@@ -6,6 +6,7 @@ from sqlalchemy import select
 from app.models.driver import Driver
 from app.models.enums import DriverStatus
 from app.repositories.base import BaseRepository
+from sqlalchemy.orm import selectinload
 
 
 class DriverRepository(BaseRepository[Driver]):
@@ -15,7 +16,20 @@ class DriverRepository(BaseRepository[Driver]):
 
     async def get_available_drivers(self) -> List[Driver]:
         result = await self.session.execute(
-            select(Driver).where(Driver.status == DriverStatus.AVAILABLE)
+            select(Driver)
+            .options(selectinload(Driver.rides))      # ADDED — prevents async lazy-load crash
+            .where(Driver.status == DriverStatus.AVAILABLE)
+        )
+        return result.scalars().all()
+
+    
+    async def get_available_drivers_for_update(self) -> List[Driver]:
+
+        result = await self.session.execute(
+            select(Driver)
+            .options(selectinload(Driver.rides))
+            .where(Driver.status == DriverStatus.AVAILABLE)
+            .with_for_update()
         )
         return result.scalars().all()
 

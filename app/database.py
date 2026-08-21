@@ -10,14 +10,17 @@ load_dotenv()
 # Database URL configuration
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./ridematch.db")
 
-# Create async engine
-engine = create_async_engine(
-    DATABASE_URL,
-    echo=os.getenv("SQL_ECHO", "False").lower() == "true",
-    future=True,
-    pool_size=20,
-    max_overflow=0,
-)
+# Create async engine — pool_size/max_overflow are QueuePool-only args (Postgres);
+# SQLite's async driver uses NullPool and rejects them.
+engine_kwargs = {
+    "echo": os.getenv("SQL_ECHO", "False").lower() == "true",
+    "future": True,
+}
+if not DATABASE_URL.startswith("sqlite"):
+    engine_kwargs["pool_size"] = 20
+    engine_kwargs["max_overflow"] = 0
+
+engine = create_async_engine(DATABASE_URL, **engine_kwargs)
 
 # Create async session factory
 AsyncSessionLocal = sessionmaker(

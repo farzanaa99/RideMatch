@@ -163,11 +163,16 @@ class MatchingEngine:
                 # No eligible drivers found — schedule retry or permanently fail
                 if not heap:
                     if request.can_retry():
-                        # Increment retry count and calculate backoff delay
-                        request.retry_count += 1
-                        delay = self.queue_manager._calculate_retry_delay(request.retry_count)
-                        request.retry_scheduled_at = datetime.now(timezone.utc) + delay
+                        next_retry_count = request.retry_count + 1
+                        delay = self.queue_manager._calculate_retry_delay(next_retry_count)
 
+                        # State machine only allows RETRYING from FAILED -- transition
+                        # through FAILED first (per-cycle match failure, not the
+                        # terminal give-up case handled in the else branch below).
+                        await self.queue_manager.update_request(
+                            request_id=request.request_id,
+                            status=RideStatus.FAILED,
+                        )
                         await self.queue_manager.update_request(
                             request_id=request.request_id,
                             status=RideStatus.RETRYING,
@@ -192,14 +197,20 @@ class MatchingEngine:
                         )
                     continue
                 
-                # Get best-scoring driver
+                                # Get best-scoring driver
                 best_score, best_driver = heapq.heappop(heap)
                 
                 logger.info(
                     "Matched request %s → driver %s (score %.3f).",
                     request.request_id, best_driver.driver_id, -best_score,
                 )
-                
+
+                # Move through QUEUED first — state machine requires PENDING→QUEUED→ASSIGNED
+                await self.queue_manager.update_request(
+                    request_id=request.request_id,
+                    status=RideStatus.QUEUED,
+                )
+
                 # Update in-memory state
                 best_driver.assign_ride(request)
                 

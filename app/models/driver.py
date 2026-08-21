@@ -1,7 +1,7 @@
 import uuid
 from sqlalchemy import Column, String, Float, Integer, Enum, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, timezone
 from app.database import Base
 from app.models.enums import DriverStatus, RideStatus
 
@@ -16,7 +16,7 @@ class Driver(Base):
     lng = Column(Float, nullable=False)
     max_capacity = Column(Integer, nullable=False, default=1)
     status = Column(Enum(DriverStatus), nullable=False, default=DriverStatus.AVAILABLE, index=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     
     # Relationships
     rides = relationship("RideRequest", back_populates="driver")
@@ -43,11 +43,8 @@ class Driver(Base):
 
         if any(r.id == ride_request.id for r in self.rides):
             return False
-                
+
         self.rides.append(ride_request)
-        ride_request.assigned_driver_id = self.id
-        ride_request.status = RideStatus.ASSIGNED
-        ride_request.assigned_at = datetime.utcnow()
         return True
 
         
