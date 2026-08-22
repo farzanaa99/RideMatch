@@ -16,9 +16,10 @@ engine_kwargs = {
     "echo": os.getenv("SQL_ECHO", "False").lower() == "true",
     "future": True,
 }
+
 if not DATABASE_URL.startswith("sqlite"):
-    engine_kwargs["pool_size"] = 50
-    engine_kwargs["max_overflow"] = 20
+    engine_kwargs["pool_size"] = 10
+    engine_kwargs["max_overflow"] = 5
 
 engine = create_async_engine(DATABASE_URL, **engine_kwargs)
 

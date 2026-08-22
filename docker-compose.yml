@@ -4,6 +4,7 @@ services:
   db:
     image: postgres:16-alpine
     container_name: ridematch-db
+    command: postgres -c max_connections=200
     environment:
       POSTGRES_USER: ridematch
       POSTGRES_PASSWORD: ridematch
@@ -23,9 +24,9 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: ridematch-api
-    command: python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+    command: python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
     environment:
-      DATABASE_URL: postgresql+asyncpg://ridematch:ridematch@db:5432/ridematch
+    DATABASE_URL: postgresql+asyncpg://ridematch:ridematch@db:5432/ridematch
       SQL_ECHO: "False"
       LOG_LEVEL: INFO
     ports:
@@ -33,6 +34,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+
 
   worker:
     build:
