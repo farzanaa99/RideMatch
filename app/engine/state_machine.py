@@ -33,7 +33,7 @@ class RideStateMachine:
         RideStatus.IN_PROGRESS: {RideStatus.COMPLETED, RideStatus.FAILED},
         RideStatus.COMPLETED: set(),  # Terminal state
         RideStatus.FAILED: {RideStatus.RETRYING},  # Only option from FAILED
-        RideStatus.RETRYING: {RideStatus.ASSIGNED, RideStatus.FAILED},
+        RideStatus.RETRYING: {RideStatus.ASSIGNED, RideStatus.FAILED, RideStatus.PENDING},
     }
 
     @staticmethod

@@ -20,13 +20,13 @@ def register_handlers(
         """Handle ride created event."""
         request_id = event.data.get("request_id")
         priority = event.data.get("priority")
-        logger.info(f"✓ RIDE_CREATED: {request_id} (priority: {priority})")
+        logger.info(f"RIDE_CREATED: {request_id} (priority: {priority})")
 
     @registry.register(EventType.RIDE_QUEUED)
     async def on_ride_queued(event: DomainEvent):
         """Handle ride queued event."""
         request_id = event.data.get("request_id")
-        logger.info(f"✓ RIDE_QUEUED: {request_id}")
+        logger.info(f"RIDE_QUEUED: {request_id}")
 
     @registry.register(EventType.RIDE_ASSIGNED)
     async def on_ride_assigned(event: DomainEvent):
@@ -37,7 +37,7 @@ def register_handlers(
         if metrics_collector and driver_id:
             metrics_collector.record_assignment(driver_id, float(latency_ms or 0))
         logger.info(
-            f"✓ RIDE_ASSIGNED: {request_id} → {driver_id} "
+            f"RIDE_ASSIGNED: {request_id} → {driver_id} "
             f"(latency: {latency_ms:.0f}ms)"
         )
 
@@ -45,13 +45,13 @@ def register_handlers(
     async def on_ride_picked_up(event: DomainEvent):
         """Handle ride picked up event."""
         request_id = event.data.get("request_id")
-        logger.info(f"✓ RIDE_PICKED_UP: {request_id}")
+        logger.info(f"RIDE_PICKED_UP: {request_id}")
 
     @registry.register(EventType.RIDE_IN_PROGRESS)
     async def on_ride_in_progress(event: DomainEvent):
         """Handle ride in progress event."""
         request_id = event.data.get("request_id")
-        logger.info(f"✓ RIDE_IN_PROGRESS: {request_id}")
+        logger.info(f"RIDE_IN_PROGRESS: {request_id}")
 
     @registry.register(EventType.RIDE_COMPLETED)
     async def on_ride_completed(event: DomainEvent):
@@ -60,7 +60,7 @@ def register_handlers(
         driver_id = event.data.get("driver_id")
         if metrics_collector and driver_id:
             metrics_collector.record_completion(driver_id)
-        logger.info(f"✓ RIDE_COMPLETED: {request_id}")
+        logger.info(f"RIDE_COMPLETED: {request_id}")
 
     @registry.register(EventType.RIDE_FAILED)
     async def on_ride_failed(event: DomainEvent):
@@ -74,12 +74,12 @@ def register_handlers(
         
         if retry_count < max_retries:
             logger.warning(
-                f"⚠ RIDE_FAILED: {request_id} "
+                f"RIDE_FAILED: {request_id} "
                 f"(retry {retry_count}/{max_retries})"
             )
         else:
             logger.error(
-                f"✗ RIDE_FAILED: {request_id} "
+                f"RIDE_FAILED: {request_id} "
                 f"(max retries exceeded)"
             )
 
@@ -88,23 +88,23 @@ def register_handlers(
         """Handle ride retrying event."""
         request_id = event.data.get("request_id")
         retry_count = event.data.get("retry_count", 0)
-        logger.info(f"↻ RIDE_RETRYING: {request_id} (attempt {retry_count})")
+        logger.info(f"RIDE_RETRYING: {request_id} (attempt {retry_count})")
 
     @registry.register(EventType.RIDE_TIMEOUT)
     async def on_ride_timeout(event: DomainEvent):
         """Handle ride timeout event."""
         request_id = event.data.get("request_id")
         reason = event.data.get("reason", "unknown")
-        logger.error(f"✗ RIDE_TIMEOUT: {request_id} ({reason})")
+        logger.error(f"RIDE_TIMEOUT: {request_id} ({reason})")
 
     @registry.register(EventType.DRIVER_AVAILABLE)
     async def on_driver_available(event: DomainEvent):
         """Handle driver available event."""
         driver_id = event.data.get("driver_id")
-        logger.debug(f"✓ DRIVER_AVAILABLE: {driver_id}")
+        logger.debug(f"DRIVER_AVAILABLE: {driver_id}")
 
     @registry.register(EventType.DRIVER_UNAVAILABLE)
     async def on_driver_unavailable(event: DomainEvent):
         """Handle driver unavailable event."""
         driver_id = event.data.get("driver_id")
-        logger.debug(f"✗ DRIVER_UNAVAILABLE: {driver_id}")
+        logger.debug(f"DRIVER_UNAVAILABLE: {driver_id}")

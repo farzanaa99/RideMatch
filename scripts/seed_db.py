@@ -48,7 +48,7 @@ async def seed_drivers():
         existing_drivers = result.scalars().all()
         
         if len(existing_drivers) > 0:
-            print(f"✓ {len(existing_drivers)} drivers already exist. Skipping driver seeding.")
+            print(f"{len(existing_drivers)} drivers already exist. Skipping driver seeding.")
             return
 
         drivers = []
@@ -71,7 +71,7 @@ async def seed_drivers():
 
         session.add_all(drivers)
         await session.commit()
-        print(f"✓ Successfully seeded {len(drivers)} drivers!")
+        print(f"Successfully seeded {len(drivers)} drivers!")
 
 
 async def seed_test_ride_requests():
@@ -82,7 +82,7 @@ async def seed_test_ride_requests():
         existing_requests = result.scalars().all()
         
         if len(existing_requests) > 0:
-            print(f"✓ {len(existing_requests)} ride requests already exist. Skipping request seeding.")
+            print(f"{len(existing_requests)} ride requests already exist. Skipping request seeding.")
             return
 
         requests = []
@@ -107,25 +107,25 @@ async def seed_test_ride_requests():
 
         session.add_all(requests)
         await session.commit()
-        print(f"✓ Successfully created {len(requests)} test ride requests!")
+        print(f"Successfully created {len(requests)} test ride requests!")
 
 
 async def main():
     """Main seeding function."""
-    print("🌱 Starting database seeding...\n")
+    print("Starting database seeding...\n")
     
     # Initialize database tables
     await init_db()
-    print("✓ Database tables initialized.\n")
+    print("Database tables initialized.\n")
     
     # Seed drivers
-    print("📍 Seeding drivers...")
+    print("Seeding drivers...")
     await seed_drivers()
     
-    print("\n📋 Seeding test ride requests...")
+    print("\nSeeding test ride requests...")
     await seed_test_ride_requests()
     
-    print("\n✅ Database seeding complete!")
+    print("\nDatabase seeding complete!")
 
 
 if __name__ == "__main__":
