@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   db:
     image: postgres:16-alpine
@@ -26,7 +24,7 @@ services:
     container_name: ridematch-api
     command: python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
     environment:
-    DATABASE_URL: postgresql+asyncpg://ridematch:ridematch@db:5432/ridematch
+      DATABASE_URL: postgresql+asyncpg://ridematch:ridematch@db:5432/ridematch
       SQL_ECHO: "False"
       LOG_LEVEL: INFO
     ports:
@@ -34,8 +32,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-
-
 
   worker:
     build:

@@ -54,3 +54,5 @@ results/
 *.db
 *.sqlite
 *.sqlite3
+
+docs/
