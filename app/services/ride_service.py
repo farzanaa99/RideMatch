@@ -1,24 +1,21 @@
 """Service layer for ride request operations."""
 
-from typing import List, Optional
 from datetime import datetime, timezone
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.ride_request import RideRequest
-from app.models.enums import RideStatus, RidePriority
-from app.repositories.ride_request_repository import RideRequestRepository
+from typing import List, Optional
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.events import DomainEvent, EventBus, EventType
 from app.exceptions import (
-    RideRequestNotFound,
-    RideAlreadyAssigned,
     CannotRetryRide,
-    InvalidRideStatus
+    InvalidRideStatus,
+    RideAlreadyAssigned,
+    RideRequestNotFound,
 )
-from app.schemas import (
-    RideRequestCreate,
-    RideRequestUpdate,
-    RideRequestResponse
-)
-from app.events import EventBus, DomainEvent, EventType
+from app.models.enums import RideStatus
+from app.models.ride_request import RideRequest
+from app.repositories.ride_request_repository import RideRequestRepository
+from app.schemas import RideRequestCreate, RideRequestResponse, RideRequestUpdate
 
 
 class RideRequestService:

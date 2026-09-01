@@ -1,10 +1,12 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Float, Integer, Enum, DateTime, ForeignKey
+
+from sqlalchemy import Column, DateTime, Enum, Float, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
+
 from app.database import Base
 from app.engine.state_machine import RideStateMachine
-from app.models.enums import RideStatus, RidePriority
+from app.models.enums import RidePriority, RideStatus
 
 
 class RideRequest(Base):

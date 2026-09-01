@@ -1,11 +1,14 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from app.api import driver_routes, ride_routes
+from app.database import close_db, init_db
+from app.dependencies import set_event_bus
 from app.events import EventBus, EventHandlerRegistry, register_handlers
 from app.metrics import MetricsCollector
-from app.dependencies import set_event_bus
-from app.database import init_db, close_db
-import logging
+
 logger = logging.getLogger(__name__)
 from contextlib import asynccontextmanager
 

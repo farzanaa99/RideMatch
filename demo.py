@@ -19,17 +19,16 @@ from datetime import timedelta
 
 logging.disable(logging.CRITICAL)
 
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.database import Base
-from app.models.driver import Driver
-from app.models.ride_request import RideRequest
-from app.models.enums import RidePriority, RideStatus
-from app.repositories.ride_request_repository import RideRequestRepository
-from app.repositories.driver_repository import DriverRepository
-from app.engine.queue_manager import QueueManager
 from app.engine.matching_engine import MatchingEngine
-
+from app.engine.queue_manager import QueueManager
+from app.models.driver import Driver
+from app.models.enums import RidePriority, RideStatus
+from app.models.ride_request import RideRequest
+from app.repositories.driver_repository import DriverRepository
+from app.repositories.ride_request_repository import RideRequestRepository
 
 DRIVER_NAMES = ["Alice", "Marcus", "Priya", "Devon", "Nina", "Kai", "Sofia", "Owen"]
 RIDER_NAMES = ["Jordan", "Sam", "Riley", "Taylor", "Morgan", "Casey", "Avery",

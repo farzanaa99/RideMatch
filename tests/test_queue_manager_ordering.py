@@ -4,7 +4,6 @@ import pytest
 
 from app.engine.queue_manager import QueueManager
 from app.engine.state_machine import RideStateMachine
-from app.models.driver import Driver
 from app.models.enums import QueueSortStrategy, RidePriority, RideStatus
 from app.models.ride_request import RideRequest
 from app.repositories.driver_repository import DriverRepository

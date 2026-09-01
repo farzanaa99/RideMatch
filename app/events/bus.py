@@ -6,7 +6,7 @@ import time
 from collections import OrderedDict
 from typing import Optional
 
-from app.events.models import DomainEvent, EventType
+from app.events.models import DomainEvent
 from app.events.registry import EventHandlerRegistry
 from app.metrics import MetricsCollector
 

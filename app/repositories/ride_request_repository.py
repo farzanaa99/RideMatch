@@ -1,10 +1,12 @@
 """Repository for RideRequest model."""
 
 from typing import List, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
+
 from sqlalchemy import select
-from app.models.ride_request import RideRequest
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.enums import RideStatus
+from app.models.ride_request import RideRequest
 from app.repositories.base import BaseRepository
 
 

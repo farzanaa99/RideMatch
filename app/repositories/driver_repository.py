@@ -1,12 +1,14 @@
 """Repository for Driver model."""
 
 from typing import List, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
+
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+
 from app.models.driver import Driver
 from app.models.enums import DriverStatus
 from app.repositories.base import BaseRepository
-from sqlalchemy.orm import selectinload
 
 
 class DriverRepository(BaseRepository[Driver]):

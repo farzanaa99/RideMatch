@@ -2,6 +2,7 @@
 
 import logging
 from typing import Optional
+
 from app.events.models import DomainEvent, EventType
 from app.events.registry import EventHandlerRegistry
 from app.metrics import MetricsCollector

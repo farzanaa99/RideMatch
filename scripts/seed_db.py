@@ -4,18 +4,16 @@ import asyncio
 import random
 import sys
 from pathlib import Path
-from datetime import datetime
 
 # Add parent directory to path so we can import app module
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+
 from app.database import AsyncSessionLocal, init_db
 from app.models.driver import Driver
+from app.models.enums import RidePriority
 from app.models.ride_request import RideRequest
-from app.models.enums import DriverStatus, RideStatus, RidePriority
-
 
 # Sample driver names
 DRIVER_NAMES = [

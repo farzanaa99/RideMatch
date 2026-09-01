@@ -1,10 +1,11 @@
 """API routes for ride request operations."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from app.services.ride_service import RideRequestService
-from app.schemas import RideRequestCreate, RideRequestUpdate, RideRequestResponse
-from app.exceptions import RideRequestNotFound, RideMatchException
+
 from app.dependencies import get_ride_service
+from app.exceptions import RideMatchException, RideRequestNotFound
+from app.schemas import RideRequestCreate, RideRequestResponse, RideRequestUpdate
+from app.services.ride_service import RideRequestService
 
 router = APIRouter(prefix="/api/v1/rides", tags=["rides"])
 

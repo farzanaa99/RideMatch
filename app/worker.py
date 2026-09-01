@@ -4,6 +4,8 @@ import asyncio
 import logging
 import os
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.database import AsyncSessionLocal, close_db, init_db
 from app.engine.matching_engine import MatchingEngine
 from app.engine.queue_manager import QueueManager
@@ -12,8 +14,6 @@ from app.events import EventBus, EventHandlerRegistry, register_handlers
 from app.metrics import MetricsCollector
 from app.repositories.driver_repository import DriverRepository
 from app.repositories.ride_request_repository import RideRequestRepository
-from sqlalchemy.ext.asyncio import AsyncSession
-
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))

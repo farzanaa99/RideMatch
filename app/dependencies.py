@@ -2,16 +2,18 @@
 
 from dataclasses import dataclass
 from typing import AsyncGenerator, Callable
+
+from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.database import AsyncSessionLocal
 from app.engine.queue_manager import QueueManager
 from app.engine.state_machine import RideStateMachine
-from app.repositories.ride_request_repository import RideRequestRepository
+from app.events import EventBus
 from app.repositories.driver_repository import DriverRepository
+from app.repositories.ride_request_repository import RideRequestRepository
 from app.services.driver_service import DriverService
 from app.services.ride_service import RideRequestService
-from app.events import EventBus
-from fastapi import Depends
 
 # Will be set by main.py
 _event_bus: EventBus | None = None

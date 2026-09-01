@@ -4,7 +4,6 @@ import logging
 import math
 import os
 import sys
-import statistics
 import time
 import uuid
 from dataclasses import dataclass, field

@@ -1,7 +1,9 @@
 import uuid
-from sqlalchemy import Column, String, Float, Integer, Enum, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
+
+from sqlalchemy import Column, DateTime, Enum, Float, Integer, String
+from sqlalchemy.orm import relationship
+
 from app.database import Base
 from app.models.enums import DriverStatus, RideStatus
 

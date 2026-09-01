@@ -1,5 +1,5 @@
 """Metrics collection module."""
 
-from app.metrics.collector import MetricsCollector, DriverMetrics
+from app.metrics.collector import DriverMetrics, MetricsCollector
 
 __all__ = ["MetricsCollector", "DriverMetrics"]

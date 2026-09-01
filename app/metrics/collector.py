@@ -1,9 +1,9 @@
 """Metrics collector for ride matching system."""
 
-from typing import Dict, List
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
 import logging
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Dict, List
 
 logger = logging.getLogger(__name__)
 

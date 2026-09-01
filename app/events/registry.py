@@ -1,7 +1,7 @@
 """Event handler registry."""
 
 import logging
-from typing import Callable, Awaitable, Any
+from typing import Awaitable, Callable
 
 from app.events.models import DomainEvent, EventType
 

@@ -1,9 +1,9 @@
-import math
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from app.models.enums import RideStatus, RidePriority
 import heapq
 import logging
+import math
+from dataclasses import dataclass
+
+from app.models.enums import RideStatus
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

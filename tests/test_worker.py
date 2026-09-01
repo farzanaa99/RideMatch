@@ -1,8 +1,9 @@
 import pytest
-from app.worker import run_worker_cycle
+
 from app.models.driver import Driver
-from app.models.ride_request import RideRequest
 from app.models.enums import RideStatus
+from app.models.ride_request import RideRequest
+from app.worker import run_worker_cycle
 
 
 @pytest.mark.asyncio

@@ -6,6 +6,7 @@ Terminal states: COMPLETED, FAILED (when retry_count exceeded).
 """
 
 import logging
+
 from app.exceptions import InvalidStatusTransition
 from app.models.enums import RideStatus
 

@@ -1,13 +1,14 @@
 """Service layer for driver operations."""
 
-from typing import List, Optional
-from datetime import datetime
+from typing import List
+
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.exceptions import DriverNotFound
 from app.models.driver import Driver
 from app.models.enums import DriverStatus
 from app.repositories.driver_repository import DriverRepository
-from app.exceptions import DriverNotFound, DriverNotAvailable
-from app.schemas import DriverCreate, DriverUpdate, DriverResponse
+from app.schemas import DriverCreate, DriverResponse, DriverUpdate
 
 
 class DriverService:

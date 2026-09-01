@@ -1,10 +1,11 @@
 """API routes for driver operations."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from app.services.driver_service import DriverService
-from app.schemas import DriverCreate, DriverUpdate, DriverResponse
-from app.exceptions import DriverNotFound, RideMatchException
+
 from app.dependencies import get_driver_service
+from app.exceptions import DriverNotFound, RideMatchException
+from app.schemas import DriverCreate, DriverResponse, DriverUpdate
+from app.services.driver_service import DriverService
 
 router = APIRouter(prefix="/api/v1/drivers", tags=["drivers"])
 

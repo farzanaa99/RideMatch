@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class RideStatus(Enum):
     PENDING = "PENDING"
     QUEUED = "QUEUED"

@@ -1,12 +1,10 @@
+import os
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-from sqlalchemy.engine import URL
+from dotenv import load_dotenv
+from sqlalchemy import engine_from_config, pool
 
 from alembic import context
-import os
-from dotenv import load_dotenv
 
 # Import our models
 from app.database import Base

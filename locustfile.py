@@ -1,6 +1,8 @@
 """locustfile.py — run from the project root."""
 import random
-from locust import HttpUser, task, between
+
+from locust import HttpUser, between, task
+
 
 class RideMatchUser(HttpUser):
     wait_time = between(0.1, 0.5)

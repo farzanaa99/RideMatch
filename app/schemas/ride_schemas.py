@@ -1,8 +1,10 @@
 """Pydantic schemas for ride requests, responses, and matching results."""
-from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional
 from datetime import datetime
-from app.models.enums import RideStatus, RidePriority
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.models.enums import RidePriority, RideStatus
 
 
 class RideRequestBase(BaseModel):

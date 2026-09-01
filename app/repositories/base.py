@@ -1,9 +1,10 @@
 """Base repository class with common database operations."""
 
-from abc import ABC, abstractmethod
-from typing import TypeVar, Generic, List, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
+from abc import ABC
+from typing import Generic, List, Optional, TypeVar
+
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase
 
 T = TypeVar("T", bound=DeclarativeBase)

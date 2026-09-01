@@ -1,11 +1,12 @@
 import pytest
-from app.models.driver import Driver
-from app.models.ride_request import RideRequest
-from app.models.enums import RideStatus
-from app.repositories.ride_request_repository import RideRequestRepository
-from app.repositories.driver_repository import DriverRepository
-from app.engine.queue_manager import QueueManager
+
 from app.engine.matching_engine import MatchingEngine
+from app.engine.queue_manager import QueueManager
+from app.models.driver import Driver
+from app.models.enums import RideStatus
+from app.models.ride_request import RideRequest
+from app.repositories.driver_repository import DriverRepository
+from app.repositories.ride_request_repository import RideRequestRepository
 
 
 @pytest.mark.asyncio

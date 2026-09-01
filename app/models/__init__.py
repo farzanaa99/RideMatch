@@ -1,7 +1,7 @@
 """Database models for RideMatch."""
 
-from app.models.enums import DriverStatus, RideStatus, RidePriority
 from app.models.driver import Driver
+from app.models.enums import DriverStatus, RidePriority, RideStatus
 from app.models.ride_request import RideRequest
 
 __all__ = [
