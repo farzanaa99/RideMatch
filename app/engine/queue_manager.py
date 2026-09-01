@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import List, Optional, Tuple
 from sqlalchemy import select, update, func, case
 from datetime import datetime, timezone, timedelta
@@ -16,8 +17,24 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 STALE_THRESHOLD_MINUTES = 30
-RETRY_BASE_DELAY_SECONDS = 5  # First retry after 5 seconds
-RETRY_MAX_DELAY_SECONDS = 300  # Cap at 5 minutes
+
+
+@dataclass(frozen=True)
+class RetryPolicy:
+    """Encapsulates retry timing rules to keep queue behavior explicit."""
+
+    base_delay_seconds: int = 5
+    max_delay_seconds: int = 300
+
+    def calculate_delay(self, retry_count: int) -> timedelta:
+        delay_seconds = min(
+            self.base_delay_seconds * (2 ** retry_count),
+            self.max_delay_seconds,
+        )
+        return timedelta(seconds=delay_seconds)
+
+
+RETRY_POLICY = RetryPolicy()
 
 class QueueManager:
     """Manages queues of ride requests and available drivers, ensuring efficient matching and processing.
@@ -40,6 +57,7 @@ class QueueManager:
         self.strategy = strategy
         self.state_machine = state_machine or RideStateMachine()
         self.event_bus = event_bus
+        self.retry_policy = RETRY_POLICY
 
     @staticmethod
     def _calculate_retry_delay(retry_count: int) -> timedelta:
@@ -52,11 +70,7 @@ class QueueManager:
             retry 2: 20s
             retry 3+: 300s (5 min cap)
         """
-        delay_seconds = min(
-            RETRY_BASE_DELAY_SECONDS * (2 ** retry_count),
-            RETRY_MAX_DELAY_SECONDS
-        )
-        return timedelta(seconds=delay_seconds)
+        return RETRY_POLICY.calculate_delay(retry_count)
 
     async def get_pending_requests(
         self,
@@ -241,14 +255,12 @@ class QueueManager:
         """
         values: dict = {}
  
-        if status is not None:
-            values["status"] = status
         if driver_id is not None:
             values["assigned_driver_id"] = driver_id
             values["assigned_at"] = datetime.now(timezone.utc).replace(tzinfo=None)
 
  
-        if not values:
+        if not values and status is None:
             logger.warning("update_request: called with no values for id=%s", request_id)
             return
  
@@ -259,27 +271,21 @@ class QueueManager:
                 raise RideRequestNotFound(
                     f"RideRequest id={request_id!r} not found"
                 )
- 
-            # ---- validate state machine transition ----
-            if status is not None:
-                current_status: RideStatus = row.status
-                self.state_machine.validate_transition(
-                    current=current_status,
-                    next=status,
-                    actor="queue_manager"
-                )
 
-                if status == RideStatus.RETRYING:
-                    now = datetime.now(timezone.utc).replace(tzinfo=None)
-                    row.retry_count += 1
-                    row.assigned_driver_id = None
-                    row.assigned_at = None
-                    row.failed_at = now
- 
+            if status is not None and status == RideStatus.RETRYING:
+                now = datetime.now(timezone.utc).replace(tzinfo=None)
+                row.retry_count += 1
+                row.assigned_driver_id = None
+                row.assigned_at = None
+                row.failed_at = now
+
             # ---- apply update using repository ----
-            # For status + driver_id updates, update the in-memory object and flush
+            # For status + driver_id updates, update the in-memory object and flush.
             for key, value in values.items():
                 setattr(row, key, value)
+
+            if status is not None and row.status != status:
+                row.transition_to(status, actor="queue_manager")
             await self.ride_repo.commit()
  
             # ---- emit events ----

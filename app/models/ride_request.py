@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, String, Float, Integer, Enum, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
+from app.engine.state_machine import RideStateMachine
 from app.models.enums import RideStatus, RidePriority
 
 
@@ -49,6 +50,20 @@ class RideRequest(Base):
 
     def can_retry(self):
         return self.retry_count < self.max_retries
+
+    def transition_to(self, next_status: RideStatus, actor: str = "ride_request") -> "RideRequest":
+        """Apply a validated state transition for this ride request.
+
+        The state machine remains the single source of truth for all lifecycle
+        validation, while the domain object owns the mutation itself.
+        """
+        RideStateMachine.validate_transition(
+            current=self.status,
+            next=next_status,
+            actor=actor,
+        )
+        self.status = next_status
+        return self
 
     @property
     def assignment_latency_ms(self):

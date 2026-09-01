@@ -1,5 +1,6 @@
 """Event models and types."""
 
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -23,10 +24,15 @@ class EventType(Enum):
 
 @dataclass
 class DomainEvent:
-    """Base domain event."""
+    """Base domain event.
+
+    Every emitted domain event gets a stable identifier so the bus can enforce
+    idempotent processing and record per-event failures in a dead-letter queue.
+    """
     event_type: EventType
     data: dict[str, Any] = field(default_factory=dict)
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    event_id: str = field(default_factory=lambda: uuid.uuid4().hex)
 
     def __repr__(self) -> str:
         return f"Event({self.event_type.value}, {self.data})"

@@ -137,8 +137,8 @@ class RideRequestService:
             )
         
         request.assigned_driver_id = driver_id
-        request.status = RideStatus.ASSIGNED
         request.assigned_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        request.transition_to(RideStatus.ASSIGNED, actor="ride_request_service")
         await self.repo.commit()
         return self._to_response(request)
 
@@ -153,8 +153,8 @@ class RideRequestService:
                 f"Can only pick up ASSIGNED rides, current status: {request.status}"
             )
         
-        request.status = RideStatus.IN_PROGRESS
         request.picked_up_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        request.transition_to(RideStatus.IN_PROGRESS, actor="ride_request_service")
         await self.repo.commit()
         return self._to_response(request)
 
@@ -169,8 +169,8 @@ class RideRequestService:
                 f"Can only complete IN_PROGRESS rides, current status: {request.status}"
             )
         
-        request.status = RideStatus.COMPLETED
         request.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        request.transition_to(RideStatus.COMPLETED, actor="ride_request_service")
         await self.repo.commit()
         return self._to_response(request)
 
@@ -180,8 +180,8 @@ class RideRequestService:
         if not request:
             raise RideRequestNotFound(f"Ride request {request_id} not found")
         
-        request.status = RideStatus.FAILED
         request.failed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        request.transition_to(RideStatus.FAILED, actor="ride_request_service")
         await self.repo.commit()
         return self._to_response(request)
 
@@ -202,8 +202,8 @@ class RideRequestService:
             )
         
         request.retry_count += 1
-        request.status = RideStatus.RETRYING
         request.assigned_driver_id = None
         request.assigned_at = None
+        request.transition_to(RideStatus.RETRYING, actor="ride_request_service")
         await self.repo.commit()
         return self._to_response(request)

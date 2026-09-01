@@ -28,7 +28,7 @@ class RideStateMachine:
     VALID_TRANSITIONS = {
         RideStatus.PENDING: {RideStatus.QUEUED, RideStatus.FAILED},
         RideStatus.QUEUED: {RideStatus.ASSIGNED, RideStatus.FAILED},
-        RideStatus.ASSIGNED: {RideStatus.EN_ROUTE, RideStatus.FAILED, RideStatus.RETRYING},
+        RideStatus.ASSIGNED: {RideStatus.EN_ROUTE, RideStatus.IN_PROGRESS, RideStatus.FAILED, RideStatus.RETRYING},
         RideStatus.EN_ROUTE: {RideStatus.IN_PROGRESS, RideStatus.FAILED},
         RideStatus.IN_PROGRESS: {RideStatus.COMPLETED, RideStatus.FAILED},
         RideStatus.COMPLETED: set(),  # Terminal state
