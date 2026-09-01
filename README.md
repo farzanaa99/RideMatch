@@ -1,4 +1,4 @@
-# RideMatch
+# RideMatch 
 
 RideMatch is a FastAPI-based ride dispatch backend that models ride request intake, driver matching, queue processing, retries, and lifecycle state management. The project is structured around API, service, repository, and engine layers to keep business logic, matching behavior, and workflow processing separated and easier to reason about.
 
@@ -13,7 +13,7 @@ The system is organized into distinct layers for request handling, business logi
 - Docker / Docker Compose
 - pytest
 
-## Quick start
+## Quick start 
 ```bash
 python -m venv .venv
 .\.venv\Scripts\activate
@@ -25,4 +25,4 @@ pytest -q
 - `app/` — API, services, models, queue logic, matching engine
 - `tests/` — automated validation
 - `alembic/` — database migrations
-- `docker-compose.yml` — local service setup
+- `docker-compose.yml` — local service setup 
