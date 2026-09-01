@@ -96,7 +96,9 @@ class MatchingEngine:
         proximity = 1 / (1 + pickup_dist)
         
         # Normalize priority from enum (LOW=1, NORMAL=2, HIGH=3) to 0-1 range
-        priority_value = ride_request.priority.value if hasattr(ride_request.priority, 'value') else ride_request.priority
+        priority_value = (
+            ride_request.priority.value if hasattr(ride_request.priority, "value") else ride_request.priority
+        )
         priority_normalized = priority_value / 3.0  # Normalize to 0-1 range
         
         # Calculate workload (driver capacity usage)
