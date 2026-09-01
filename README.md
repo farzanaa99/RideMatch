@@ -1,14 +1,9 @@
 # RideMatch
 
-A FastAPI-based ride-matching backend for managing ride requests, driver assignment, queue processing, retries, and state validation.
+RideMatch is a FastAPI-based ride dispatch backend that models ride request intake, driver matching, queue processing, retries, and lifecycle state management. The project is structured around API, service, repository, and engine layers to keep business logic, matching behavior, and workflow processing separated and easier to reason about.
 
-## What it does
-- accepts ride requests from riders
-- evaluates available drivers using a matching workflow
-- assigns rides based on driver availability and queue priority
-- tracks ride lifecycle states from request to completion or retry
-- retries failed or unmatched rides with backoff
-- emits domain events for operational metrics and async processing
+## Architecture
+The system is organized into distinct layers for request handling, business logic, persistence, and matching behavior. Ride lifecycle rules are centralized in the state machine, while background worker processing coordinates retries and dispatch work asynchronously.
 
 ## Tech stack
 - Python
