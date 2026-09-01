@@ -57,12 +57,16 @@ class DriverService:
         drivers = await self.repo.get_available_drivers()
         return [self._to_response(d) for d in drivers]
 
-    async def update_driver(self, driver_id: str, driver_in: DriverUpdate) -> DriverResponse:
+    async def update_driver(
+        self,
+        driver_id: str,
+        driver_in: DriverUpdate,
+    ) -> DriverResponse:
         """Update a driver."""
         driver = await self.repo.get_by_id(driver_id)
         if not driver:
             raise DriverNotFound(f"Driver {driver_id} not found")
-        
+
         driver_data = driver_in.model_dump(exclude_unset=True)
         updated_driver = await self.repo.update(driver_id, driver_data)
         await self.repo.commit()
@@ -78,12 +82,16 @@ class DriverService:
         await self.repo.commit()
         return success
 
-    async def set_driver_status(self, driver_id: str, status: DriverStatus) -> DriverResponse:
+    async def set_driver_status(
+        self,
+        driver_id: str,
+        status: DriverStatus,
+    ) -> DriverResponse:
         """Update driver status."""
         driver = await self.repo.get_by_id(driver_id)
         if not driver:
             raise DriverNotFound(f"Driver {driver_id} not found")
-        
+
         driver.status = status
         await self.repo.commit()
         return self._to_response(driver)

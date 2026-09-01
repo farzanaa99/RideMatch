@@ -35,22 +35,25 @@ class MetricsCollector:
         self.assignment_latencies.append(latency_ms)
         self.total_rides += 1
         self.total_assignments += 1
-        
+
         if driver_id not in self.driver_metrics:
             self.driver_metrics[driver_id] = DriverMetrics(driver_id=driver_id)
-        
+
         self.driver_metrics[driver_id].active_rides += 1
         self.driver_metrics[driver_id].total_assignments += 1
-        logger.debug(f"Recorded assignment: {driver_id} latency={latency_ms}ms")
+        logger.debug("Recorded assignment: %s latency=%sms", driver_id, latency_ms)
 
     def record_completion(self, driver_id: str) -> None:
         """Record a ride completion."""
         self.completed_rides += 1
-        
+
         if driver_id in self.driver_metrics:
-            self.driver_metrics[driver_id].active_rides = max(0, self.driver_metrics[driver_id].active_rides - 1)
+            self.driver_metrics[driver_id].active_rides = max(
+                0,
+                self.driver_metrics[driver_id].active_rides - 1,
+            )
             self.driver_metrics[driver_id].completed_rides += 1
-        logger.debug(f"Recorded completion: {driver_id}")
+        logger.debug("Recorded completion: %s", driver_id)
 
     def record_failure(self, driver_id: str = None) -> None:
         """Record a ride failure."""

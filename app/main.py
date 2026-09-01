@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,7 +11,6 @@ from app.events import EventBus, EventHandlerRegistry, register_handlers
 from app.metrics import MetricsCollector
 
 logger = logging.getLogger(__name__)
-from contextlib import asynccontextmanager
 
 
 @asynccontextmanager

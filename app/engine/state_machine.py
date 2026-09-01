@@ -29,32 +29,42 @@ class RideStateMachine:
     VALID_TRANSITIONS = {
         RideStatus.PENDING: {RideStatus.QUEUED, RideStatus.FAILED},
         RideStatus.QUEUED: {RideStatus.ASSIGNED, RideStatus.FAILED},
-        RideStatus.ASSIGNED: {RideStatus.EN_ROUTE, RideStatus.IN_PROGRESS, RideStatus.FAILED, RideStatus.RETRYING},
+        RideStatus.ASSIGNED: {
+            RideStatus.EN_ROUTE,
+            RideStatus.IN_PROGRESS,
+            RideStatus.FAILED,
+            RideStatus.RETRYING,
+        },
         RideStatus.EN_ROUTE: {RideStatus.IN_PROGRESS, RideStatus.FAILED},
         RideStatus.IN_PROGRESS: {RideStatus.COMPLETED, RideStatus.FAILED},
         RideStatus.COMPLETED: set(),  # Terminal state
         RideStatus.FAILED: {RideStatus.RETRYING},  # Only option from FAILED
-        RideStatus.RETRYING: {RideStatus.ASSIGNED, RideStatus.FAILED, RideStatus.PENDING},
+        RideStatus.RETRYING: {
+            RideStatus.ASSIGNED,
+            RideStatus.FAILED,
+            RideStatus.PENDING,
+        },
     }
 
     @staticmethod
     def validate_transition(current: RideStatus, next: RideStatus, actor: str) -> None:
         """Validate a state transition.
-        
+
         Args:
             current: Current ride status
             next: Requested new status
-            actor: Who/what is requesting the transition (e.g., "matching_engine", "driver", "system")
-        
+            actor: Who/what is requesting the transition
+                   (e.g., "matching_engine", "driver", "system")
+
         Raises:
             InvalidStatusTransition: If transition is not allowed
         """
         allowed_transitions = RideStateMachine.VALID_TRANSITIONS.get(current, set())
-        
+
         if next not in allowed_transitions:
             raise InvalidStatusTransition(
                 f"{actor} cannot transition {current.value} → {next.value}. "
                 f"Allowed: {[s.value for s in allowed_transitions]}"
             )
-        
+
         logger.info(f"Transition [{actor}]: {current.value} → {next.value}")

@@ -21,18 +21,31 @@ class RideRequest(Base):
     pickup_address = Column(String(255), nullable=True)
     dropoff_address = Column(String(255), nullable=True)
     
-    priority = Column(Enum(RidePriority), nullable=False, default=RidePriority.NORMAL)
-    status = Column(Enum(RideStatus), nullable=False, default=RideStatus.PENDING, index=True)
-    
+    priority = Column(
+        Enum(RidePriority),
+        nullable=False,
+        default=RidePriority.NORMAL,
+    )
+    status = Column(
+        Enum(RideStatus),
+        nullable=False,
+        default=RideStatus.PENDING,
+        index=True,
+    )
+
     # Retry logic
     retry_count = Column(Integer, nullable=False, default=0)
     max_retries = Column(Integer, nullable=False, default=3)
-    
+
     # Assignment
     assigned_driver_id = Column(String(36), ForeignKey("drivers.id"), nullable=True)
-    
+
     # Lifecycle timestamps
-    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+    )
     queued_at = Column(DateTime, nullable=True)
     assigned_at = Column(DateTime, nullable=True)
     picked_up_at = Column(DateTime, nullable=True)

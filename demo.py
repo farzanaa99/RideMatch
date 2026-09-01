@@ -30,9 +30,30 @@ from app.models.ride_request import RideRequest
 from app.repositories.driver_repository import DriverRepository
 from app.repositories.ride_request_repository import RideRequestRepository
 
-DRIVER_NAMES = ["Alice", "Marcus", "Priya", "Devon", "Nina", "Kai", "Sofia", "Owen"]
-RIDER_NAMES = ["Jordan", "Sam", "Riley", "Taylor", "Morgan", "Casey", "Avery",
-               "Quinn", "Reese", "Blake", "Harper", "Emerson"]
+DRIVER_NAMES = [
+    "Alice",
+    "Marcus",
+    "Priya",
+    "Devon",
+    "Nina",
+    "Kai",
+    "Sofia",
+    "Owen",
+]
+RIDER_NAMES = [
+    "Jordan",
+    "Sam",
+    "Riley",
+    "Taylor",
+    "Morgan",
+    "Casey",
+    "Avery",
+    "Quinn",
+    "Reese",
+    "Blake",
+    "Harper",
+    "Emerson",
+]
 
 CITY_LAT, CITY_LNG = 40.73, -73.99   # roughly Manhattan
 SPREAD = 0.06
@@ -63,11 +84,24 @@ async def draw(tick, drivers, rides_by_id, events, stats):
     lines.append("=" * 64)
     lines.append("FLEET")
     for d in drivers:
-        busy_ride = next((r for r in rides_by_id.values()
-                           if r.assigned_driver_id == d.id
-                           and r.status in (RideStatus.ASSIGNED, RideStatus.EN_ROUTE, RideStatus.IN_PROGRESS)), None)
+        busy_ride = next(
+            (
+                r
+                for r in rides_by_id.values()
+                if r.assigned_driver_id == d.id
+                and r.status
+                in (
+                    RideStatus.ASSIGNED,
+                    RideStatus.EN_ROUTE,
+                    RideStatus.IN_PROGRESS,
+                )
+            ),
+            None,
+        )
         if busy_ride:
-            lines.append(f"  {d.driver_name:<8} {d.rating:.1f}*   busy -> {busy_ride.rider_id}")
+            lines.append(
+                f"  {d.driver_name:<8} {d.rating:.1f}*   busy -> {busy_ride.rider_id}"
+            )
         else:
             lines.append(f"  {d.driver_name:<8} {d.rating:.1f}*   free")
 
@@ -108,8 +142,15 @@ async def main():
         names = random.sample(DRIVER_NAMES, fleet_size)
         for name in names:
             lat, lng = rand_point()
-            session.add(Driver(driver_name=name, rating=round(random.uniform(4.3, 5.0), 1),
-                                lat=lat, lng=lng, max_capacity=1))
+            session.add(
+                Driver(
+                    driver_name=name,
+                    rating=round(random.uniform(4.3, 5.0), 1),
+                    lat=lat,
+                    lng=lng,
+                    max_capacity=1,
+                )
+            )
         await session.commit()
 
         drivers = await driver_repo.get_available_drivers()
@@ -119,7 +160,8 @@ async def main():
         stats = {"matched": 0, "completed": 0}
         rider_pool = random.sample(RIDER_NAMES, min(len(RIDER_NAMES), TICKS))
         rider_i = 0
-        previously_retrying_ids = set()  # rides that were already RETRYING before this tick
+        # rides already RETRYING before this tick
+        previously_retrying_ids = set()
 
         for tick in range(TICKS):
             # Randomized arrivals: 0-2 new ride requests this tick
@@ -134,24 +176,50 @@ async def main():
                     [RidePriority.LOW, RidePriority.NORMAL, RidePriority.HIGH],
                     weights=[0.3, 0.5, 0.2],
                 )[0]
-                ride = RideRequest(rider_id=name, pickup_lat=plat, pickup_lng=plng,
-                                    dropoff_lat=dlat, dropoff_lng=dlng, priority=priority)
+                ride = RideRequest(
+                    rider_id=name,
+                    pickup_lat=plat,
+                    pickup_lng=plng,
+                    dropoff_lat=dlat,
+                    dropoff_lng=dlng,
+                    priority=priority,
+                )
                 session.add(ride)
                 await session.commit()
                 rides_by_id[ride.request_id] = ride
-                events.append((fmt_clock(tick), f"{name} requested a ride [{priority.name}]"))
+                events.append(
+                    (fmt_clock(tick), f"{name} requested a ride [{priority.name}]")
+                )
 
             # Randomly complete one busy driver's ride this tick (simulates a trip finishing)
-            in_flight = [r for r in rides_by_id.values()
-                         if r.status in (RideStatus.ASSIGNED, RideStatus.EN_ROUTE, RideStatus.IN_PROGRESS)]
+            in_flight = [
+                r
+                for r in rides_by_id.values()
+                if r.status
+                in (RideStatus.ASSIGNED, RideStatus.EN_ROUTE, RideStatus.IN_PROGRESS)
+            ]
             if in_flight and random.random() < 0.5:
                 ride = random.choice(in_flight)
-                await queue_manager.update_request(request_id=ride.request_id, status=RideStatus.EN_ROUTE)
-                await queue_manager.update_request(request_id=ride.request_id, status=RideStatus.IN_PROGRESS)
-                await queue_manager.update_request(request_id=ride.request_id, status=RideStatus.COMPLETED)
+                await queue_manager.update_request(
+                    request_id=ride.request_id,
+                    status=RideStatus.EN_ROUTE,
+                )
+                await queue_manager.update_request(
+                    request_id=ride.request_id,
+                    status=RideStatus.IN_PROGRESS,
+                )
+                await queue_manager.update_request(
+                    request_id=ride.request_id,
+                    status=RideStatus.COMPLETED,
+                )
                 await session.refresh(ride)
                 stats["completed"] += 1
-                events.append((fmt_clock(tick), f"{ride.rider_id}'s ride completed, driver freed up"))
+                events.append(
+                    (
+                        fmt_clock(tick),
+                        f"{ride.rider_id}'s ride completed, driver freed up",
+                    )
+                )
 
             # Run the real matching engine
             matches = await matching_engine.match_rides()
@@ -160,7 +228,9 @@ async def main():
                 await session.refresh(ride)
                 drv = next(d for d in drivers if d.id == drv_id)
                 stats["matched"] += 1
-                events.append((fmt_clock(tick), f"{ride.rider_id} matched with {drv.driver_name}"))
+                events.append(
+                    (fmt_clock(tick), f"{ride.rider_id} matched with {drv.driver_name}")
+                )
 
             # Process retries -- but only ones that were ALREADY retrying before
             # this tick's match attempt, so a newly-retrying ride is actually

@@ -357,7 +357,10 @@ class QueueManager:
             raise  # re-raise domain exceptions without rollback
         except Exception:
             await self.ride_repo.rollback()
-            logger.exception("update_request: database error for id=%s — rolled back", request_id)
+            logger.exception(
+                "update_request: database error for id=%s — rolled back",
+                request_id,
+            )
             raise
  
     # ------------------------------------------------------------------
@@ -398,7 +401,9 @@ class QueueManager:
  
         except Exception:
             await self.session.rollback()
-            logger.exception("mark_stale_requests_as_failed: database error — rolled back")
+            logger.exception(
+                "mark_stale_requests_as_failed: database error — rolled back"
+            )
             raise
  
     # ------------------------------------------------------------------

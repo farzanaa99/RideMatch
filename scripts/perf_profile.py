@@ -13,11 +13,15 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy import text  # noqa: E402
+from sqlalchemy.ext.asyncio import (  # noqa: E402
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
-from app.engine.matching_engine import MatchingEngine
-from app.models.enums import RidePriority, RideStatus
+from app.engine.matching_engine import MatchingEngine  # noqa: E402
+from app.models.enums import RidePriority, RideStatus  # noqa: E402
 
 logging.getLogger("app.engine.matching_engine").setLevel(logging.WARNING)
 
@@ -92,7 +96,12 @@ class BenchQueueManager:
     async def get_available_drivers(self):
         return self.drivers
 
-    async def update_request(self, request_id: str, status: RideStatus, driver_id: str | None = None):
+    async def update_request(
+        self,
+        request_id: str,
+        status: RideStatus,
+        driver_id: str | None = None,
+    ):
         self.updates.append((request_id, status, driver_id))
 
     async def get_rides_ready_for_retry(self):
@@ -156,7 +165,11 @@ async def benchmark_db_io(rounds: int):
     db_name = f"perf_bench_{uuid.uuid4().hex}.db"
     db_path = os.path.join(os.getcwd(), db_name)
     engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}", future=True)
-    session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    session_factory = async_sessionmaker(
+        engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
 
     started = time.perf_counter()
     async with session_factory() as session:

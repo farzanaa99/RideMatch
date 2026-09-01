@@ -66,7 +66,11 @@ class EventBus:
         self._prune_seen_event_ids()
         if event.event_id in self.seen_event_ids:
             self.metrics["events_duplicate_skipped"] += 1
-            logger.info("Duplicate event dropped: %s (%s)", event.event_type.value, event.event_id)
+            logger.info(
+                "Duplicate event dropped: %s (%s)",
+                event.event_type.value,
+                event.event_id,
+            )
             return
 
         self.seen_event_ids.add(event.event_id)
@@ -120,7 +124,11 @@ class EventBus:
 
                 for handler, result in zip(handlers, results):
                     if isinstance(result, Exception):
-                        handler_name = getattr(handler, "__name__", handler.__class__.__name__)
+                        handler_name = getattr(
+                            handler,
+                            "__name__",
+                            handler.__class__.__name__,
+                        )
                         logger.error(
                             "Handler %s failed for %s: %s",
                             handler_name,
@@ -129,17 +137,27 @@ class EventBus:
                         )
                         self.dead_letter_queue.append((event, result, handler_name))
                         self.metrics["events_failed"] += 1
-                        self.metrics["events_dead_lettered"] = len(self.dead_letter_queue)
+                        self.metrics["events_dead_lettered"] = len(
+                            self.dead_letter_queue
+                        )
 
                 self.metrics["events_processed"] += 1
-                logger.debug("Processed event: %s (%s)", event.event_type.value, event.event_id)
+                logger.debug(
+                    "Processed event: %s (%s)",
+                    event.event_type.value,
+                    event.event_id,
+                )
             except asyncio.CancelledError:
                 break
             except Exception as exc:  # pragma: no cover - sanity guard
                 self.metrics["events_failed"] += 1
                 self.dead_letter_queue.append((event, exc, "event_bus"))
                 self.metrics["events_dead_lettered"] = len(self.dead_letter_queue)
-                logger.exception("Error processing event %s: %s", event.event_type.value, exc)
+                logger.exception(
+                    "Error processing event %s: %s",
+                    event.event_type.value,
+                    exc,
+                )
             finally:
                 self.queue.task_done()
 

@@ -11,66 +11,74 @@ from app.models.enums import RidePriority, RideStatus
 
 @dataclass
 class FakeRequest:
-	request_id: str
-	pickup_lat: float
-	pickup_lng: float
-	dropoff_lat: float
-	dropoff_lng: float
-	priority: RidePriority
-	retry_count: int = 0
-	max_retries: int = 3
+    request_id: str
+    pickup_lat: float
+    pickup_lng: float
+    dropoff_lat: float
+    dropoff_lng: float
+    priority: RidePriority
+    retry_count: int = 0
+    max_retries: int = 3
 
-	def can_retry(self) -> bool:
-		return self.retry_count < self.max_retries
+    def can_retry(self) -> bool:
+        return self.retry_count < self.max_retries
 
 
 @dataclass
 class FakeDriver:
-	driver_id: str
-	lat: float
-	lng: float
-	max_capacity: int = 1
-	status: str = "AVAILABLE"
-	rides: list[FakeRequest] = field(default_factory=list)
+    driver_id: str
+    lat: float
+    lng: float
+    max_capacity: int = 1
+    status: str = "AVAILABLE"
+    rides: list[FakeRequest] = field(default_factory=list)
 
-	@property
-	def current_location(self):
-		return (self.lat, self.lng)
+    @property
+    def current_location(self):
+        return (self.lat, self.lng)
 
-	@property
-	def active_ride_count(self) -> int:
-		return len(self.rides)
+    @property
+    def active_ride_count(self) -> int:
+        return len(self.rides)
 
-	@property
-	def is_assignable(self) -> bool:
-		return self.active_ride_count < self.max_capacity and self.status == "AVAILABLE"
+    @property
+    def is_assignable(self) -> bool:
+        return (
+            self.active_ride_count < self.max_capacity
+            and self.status == "AVAILABLE"
+        )
 
-	def assign_ride(self, request: FakeRequest):
-		self.rides.append(request)
-		return True
+    def assign_ride(self, request: FakeRequest):
+        self.rides.append(request)
+        return True
 
 
 class FakeQueueManager:
-	def __init__(self, requests: list[FakeRequest], drivers: list[FakeDriver]):
-		self.requests = requests
-		self.drivers = drivers
-		self.updates: list[tuple[str, RideStatus, str | None]] = []
+    def __init__(self, requests: list[FakeRequest], drivers: list[FakeDriver]):
+        self.requests = requests
+        self.drivers = drivers
+        self.updates: list[tuple[str, RideStatus, str | None]] = []
 
-	async def get_pending_requests(self):
-		return self.requests, len(self.requests)
+    async def get_pending_requests(self):
+        return self.requests, len(self.requests)
 
-	async def get_available_drivers(self):
-		return self.drivers
+    async def get_available_drivers(self):
+        return self.drivers
 
-	async def update_request(self, request_id: str, status: RideStatus, driver_id: str | None = None):
-		self.updates.append((request_id, status, driver_id))
+    async def update_request(
+        self,
+        request_id: str,
+        status: RideStatus,
+        driver_id: str | None = None,
+    ):
+        self.updates.append((request_id, status, driver_id))
 
-	async def get_rides_ready_for_retry(self):
-		return []
+    async def get_rides_ready_for_retry(self):
+        return []
 
-	@staticmethod
-	def _calculate_retry_delay(retry_count: int) -> timedelta:
-		return timedelta(seconds=min(5 * (2 ** retry_count), 300))
+    @staticmethod
+    def _calculate_retry_delay(retry_count: int) -> timedelta:
+        return timedelta(seconds=min(5 * (2 ** retry_count), 300))
 
 
 def test_haversine_distance_zero():

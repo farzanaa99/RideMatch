@@ -19,7 +19,11 @@ async def test_event_bus_skips_duplicate_event_ids():
         calls += 1
 
     await bus.start()
-    event = DomainEvent(event_type=EventType.RIDE_CREATED, event_id="dup-1", data={"request_id": "r-1"})
+    event = DomainEvent(
+        event_type=EventType.RIDE_CREATED,
+        event_id="dup-1",
+        data={"request_id": "r-1"},
+    )
     await bus.publish(event)
     await bus.publish(event)
     await asyncio.sleep(0.05)
@@ -40,10 +44,28 @@ async def test_event_bus_reuses_idempotency_cache_only_for_bounded_window():
         calls += 1
 
     await bus.start()
-    await bus.publish(DomainEvent(event_type=EventType.RIDE_CREATED, event_id="e-1", data={"request_id": "r-1"}))
-    await bus.publish(DomainEvent(event_type=EventType.RIDE_CREATED, event_id="e-2", data={"request_id": "r-2"}))
+    await bus.publish(
+        DomainEvent(
+            event_type=EventType.RIDE_CREATED,
+            event_id="e-1",
+            data={"request_id": "r-1"},
+        )
+    )
+    await bus.publish(
+        DomainEvent(
+            event_type=EventType.RIDE_CREATED,
+            event_id="e-2",
+            data={"request_id": "r-2"},
+        )
+    )
     await asyncio.sleep(0.02)
-    await bus.publish(DomainEvent(event_type=EventType.RIDE_CREATED, event_id="e-1", data={"request_id": "r-1"}))
+    await bus.publish(
+        DomainEvent(
+            event_type=EventType.RIDE_CREATED,
+            event_id="e-1",
+            data={"request_id": "r-1"},
+        )
+    )
     await asyncio.sleep(0.05)
     await bus.stop()
 
@@ -60,7 +82,13 @@ async def test_event_bus_accumulates_dead_letter_queue():
         raise RuntimeError("simulated handler failure")
 
     await bus.start()
-    await bus.publish(DomainEvent(event_type=EventType.RIDE_FAILED, event_id="dlq-1", data={"request_id": "r-2"}))
+    await bus.publish(
+        DomainEvent(
+            event_type=EventType.RIDE_FAILED,
+            event_id="dlq-1",
+            data={"request_id": "r-2"},
+        )
+    )
     await asyncio.sleep(0.05)
     await bus.stop()
 

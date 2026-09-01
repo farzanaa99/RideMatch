@@ -17,9 +17,18 @@ class Driver(Base):
     lat = Column(Float, nullable=False)
     lng = Column(Float, nullable=False)
     max_capacity = Column(Integer, nullable=False, default=1)
-    status = Column(Enum(DriverStatus), nullable=False, default=DriverStatus.AVAILABLE, index=True)
-    created_at = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
-    
+    status = Column(
+        Enum(DriverStatus),
+        nullable=False,
+        default=DriverStatus.AVAILABLE,
+        index=True,
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+    )
+
     # Relationships
     rides = relationship("RideRequest", back_populates="driver")
 
@@ -33,11 +42,24 @@ class Driver(Base):
 
     @property
     def active_ride_count(self):
-        return len([r for r in self.rides if r.status in (RideStatus.ASSIGNED, RideStatus.EN_ROUTE, RideStatus.IN_PROGRESS)])
+        return len(
+            [
+                r
+                for r in self.rides
+                if r.status in (
+                    RideStatus.ASSIGNED,
+                    RideStatus.EN_ROUTE,
+                    RideStatus.IN_PROGRESS,
+                )
+            ]
+        )
 
     @property
     def is_assignable(self):
-        return self.active_ride_count < self.max_capacity and self.status == DriverStatus.AVAILABLE
+        return (
+            self.active_ride_count < self.max_capacity
+            and self.status == DriverStatus.AVAILABLE
+        )
 
     def assign_ride(self, ride_request):
         if not self.is_assignable:

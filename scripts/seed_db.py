@@ -17,11 +17,31 @@ from app.models.ride_request import RideRequest
 
 # Sample driver names
 DRIVER_NAMES = [
-    "John Smith", "Maria Garcia", "Ahmed Hassan", "Lisa Chen", "Carlos Rodriguez",
-    "Fatima Al-Rashid", "James Wilson", "Priya Patel", "Michael O'Connor", "Sofia Rossi",
-    "David Kim", "Amira Mohamed", "Robert Thompson", "Yuki Tanaka", "Paul Mueller",
-    "Elena Volkov", "Marcus Johnson", "Jasmine Patel", "Francisco Morales", "Nina Bergman",
-    "Kevin Zhang", "Leila Amin", "Daniel Costa", "Isabelle Dubois", "Hassan Ibrahim",
+    "John Smith",
+    "Maria Garcia",
+    "Ahmed Hassan",
+    "Lisa Chen",
+    "Carlos Rodriguez",
+    "Fatima Al-Rashid",
+    "James Wilson",
+    "Priya Patel",
+    "Michael O'Connor",
+    "Sofia Rossi",
+    "David Kim",
+    "Amira Mohamed",
+    "Robert Thompson",
+    "Yuki Tanaka",
+    "Paul Mueller",
+    "Elena Volkov",
+    "Marcus Johnson",
+    "Jasmine Patel",
+    "Francisco Morales",
+    "Nina Bergman",
+    "Kevin Zhang",
+    "Leila Amin",
+    "Daniel Costa",
+    "Isabelle Dubois",
+    "Hassan Ibrahim",
 ]
 
 # Sample cities/areas with coordinates
@@ -46,7 +66,10 @@ async def seed_drivers():
         existing_drivers = result.scalars().all()
         
         if len(existing_drivers) > 0:
-            print(f"{len(existing_drivers)} drivers already exist. Skipping driver seeding.")
+            print(
+                f"{len(existing_drivers)} drivers already exist. "
+                "Skipping driver seeding."
+            )
             return
 
         drivers = []
@@ -65,7 +88,10 @@ async def seed_drivers():
                 max_capacity=random.choice([1, 2, 3])
             )
             drivers.append(driver)
-            print(f"  Created driver {i}: {name} (Rating: {driver.rating}, Area: {area['name']})")
+            print(
+                f"  Created driver {i}: {name} "
+                f"(Rating: {driver.rating}, Area: {area['name']})"
+            )
 
         session.add_all(drivers)
         await session.commit()
@@ -80,7 +106,10 @@ async def seed_test_ride_requests():
         existing_requests = result.scalars().all()
         
         if len(existing_requests) > 0:
-            print(f"{len(existing_requests)} ride requests already exist. Skipping request seeding.")
+            print(
+                f"{len(existing_requests)} ride requests already exist. "
+                "Skipping request seeding."
+            )
             return
 
         requests = []
