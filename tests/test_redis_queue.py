@@ -1,5 +1,5 @@
-import redis.asyncio as redis
 import pytest
+import redis.asyncio as redis
 
 from app.queue.redis_queue import RedisQueue
 
@@ -106,7 +106,7 @@ async def test_redis_queue_falls_back_to_in_memory_when_server_unavailable(monke
         "from_url",
         lambda *args, **kwargs: (_ for _ in ()).throw(ConnectionError("offline")),
     )
-    
+
     queue = RedisQueue("redis://localhost:6379/0")
     queued = await queue.enqueue_once("ride-match-jobs", {"ride_id": 42}, "ride:42:match")
     duplicate = await queue.enqueue_once("ride-match-jobs", {"ride_id": 42}, "ride:42:match")
