@@ -9,6 +9,7 @@ The system is organized into distinct layers for request handling, business logi
 - Python
 - FastAPI
 - SQLAlchemy 2.0
+- Redis
 - SQLite for local development
 - Docker / Docker Compose
 - pytest
