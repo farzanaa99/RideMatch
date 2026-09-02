@@ -101,7 +101,7 @@ async def test_redis_queue_supports_delayed_jobs_and_dead_letter(monkeypatch):
 @pytest.mark.asyncio
 async def test_redis_queue_falls_back_to_in_memory_when_server_unavailable(monkeypatch):
     monkeypatch.setattr(
-            "app.queue.redis_queue.redis.from_url",
+            "app.queue.redis_queue.redis",
             "from_url",
             lambda *args, **kwargs: (_ for _ in ()).throw(
                 ConnectionError("offline")
