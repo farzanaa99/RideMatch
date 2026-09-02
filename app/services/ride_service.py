@@ -1,5 +1,6 @@
 """Service layer for ride request operations."""
 
+import os
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -14,6 +15,7 @@ from app.exceptions import (
 )
 from app.models.enums import RideStatus
 from app.models.ride_request import RideRequest
+from app.queue.redis_queue import RedisQueue
 from app.repositories.ride_request_repository import RideRequestRepository
 from app.schemas import RideRequestCreate, RideRequestResponse, RideRequestUpdate
 
@@ -25,6 +27,7 @@ class RideRequestService:
         self.session = session
         self.repo = RideRequestRepository(session)
         self.event_bus = event_bus
+        self.redis_queue = RedisQueue(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
 
     @staticmethod
     def _to_response(request: RideRequest) -> RideRequestResponse:
@@ -64,17 +67,25 @@ class RideRequestService:
         
         # Emit event
         if self.event_bus:
-            await self.event_bus.publish(DomainEvent(
-                event_type=EventType.RIDE_CREATED,
-                data={
-                    "request_id": request.id,
-                    "rider_id": request.rider_id,
-                    "priority": request.priority.name,
-                    "pickup_lat": request.pickup_lat,
-                    "pickup_lng": request.pickup_lng,
-                }
-            ))
-        
+            await self.event_bus.publish(
+                DomainEvent(
+                    event_type=EventType.RIDE_CREATED,
+                    data={
+                        "request_id": request.id,
+                        "rider_id": request.rider_id,
+                        "priority": request.priority.name,
+                        "pickup_lat": request.pickup_lat,
+                        "pickup_lng": request.pickup_lng,
+                    },
+                )
+            )
+
+        await self.redis_queue.enqueue_once(
+            "ride-match-jobs",
+            {"ride_id": request.id, "queue": "match"},
+            idempotency_key=f"ride:{request.id}:match",
+        )
+
         return self._to_response(request)
 
     async def get_ride_request(self, request_id: str) -> RideRequestResponse:
@@ -203,4 +214,12 @@ class RideRequestService:
         request.assigned_at = None
         request.transition_to(RideStatus.RETRYING, actor="ride_request_service")
         await self.repo.commit()
+
+        await self.redis_queue.enqueue_with_delay_once(
+            "ride-retry-jobs",
+            {"ride_id": request.id, "queue": "retry"},
+            delay_seconds=5,
+            idempotency_key=f"ride:{request.id}:retry",
+        )
+
         return self._to_response(request)

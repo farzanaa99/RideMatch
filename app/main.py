@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -9,17 +10,22 @@ from app.database import close_db, init_db
 from app.dependencies import set_event_bus
 from app.events import EventBus, EventHandlerRegistry, register_handlers
 from app.metrics import MetricsCollector
+from app.queue.redis_queue import RedisQueue
 
 logger = logging.getLogger(__name__)
+
+redis_queue = RedisQueue(os.getenv("REDIS_URL", "redis://localhost:6379/0"))
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
     await event_bus.start()
+    await redis_queue.ping()
     logger.info("Application startup complete")
     yield
     await event_bus.stop()
+    await redis_queue.close()
     await close_db()
     logger.info("Application shutdown complete")
 
