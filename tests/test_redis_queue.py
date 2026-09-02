@@ -1,3 +1,4 @@
+import redis.asyncio as redis
 import pytest
 
 from app.queue.redis_queue import RedisQueue
@@ -68,7 +69,7 @@ class FakeRedis:
 @pytest.mark.asyncio
 async def test_redis_queue_enforces_idempotent_enqueue(monkeypatch):
     fake_client = FakeRedis()
-    monkeypatch.setattr("app.queue.redis_queue.redis.from_url", lambda *args, **kwargs: fake_client)
+    monkeypatch.setattr(redis, "from_url", lambda *args, **kwargs: fake_client)
 
     queue = RedisQueue("redis://example.test")
 
@@ -83,7 +84,7 @@ async def test_redis_queue_enforces_idempotent_enqueue(monkeypatch):
 @pytest.mark.asyncio
 async def test_redis_queue_supports_delayed_jobs_and_dead_letter(monkeypatch):
     fake_client = FakeRedis()
-    monkeypatch.setattr("app.queue.redis_queue.redis.from_url", lambda *args, **kwargs: fake_client)
+    monkeypatch.setattr(redis, "from_url", lambda *args, **kwargs: fake_client)
 
     queue = RedisQueue("redis://example.test")
     job = {"ride_id": 99, "queue": "retry"}
@@ -101,12 +102,11 @@ async def test_redis_queue_supports_delayed_jobs_and_dead_letter(monkeypatch):
 @pytest.mark.asyncio
 async def test_redis_queue_falls_back_to_in_memory_when_server_unavailable(monkeypatch):
     monkeypatch.setattr(
-            "app.queue.redis_queue.redis",
-            "from_url",
-            lambda *args, **kwargs: (_ for _ in ()).throw(
-                ConnectionError("offline")
-            ),
-        )
+        redis,
+        "from_url",
+        lambda *args, **kwargs: (_ for _ in ()).throw(ConnectionError("offline")),
+    )
+    
     queue = RedisQueue("redis://localhost:6379/0")
     queued = await queue.enqueue_once("ride-match-jobs", {"ride_id": 42}, "ride:42:match")
     duplicate = await queue.enqueue_once("ride-match-jobs", {"ride_id": 42}, "ride:42:match")
